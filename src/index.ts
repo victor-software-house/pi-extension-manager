@@ -1,9 +1,9 @@
 /**
- * Extensions Manager - Enhanced UI/UX for managing Pi extensions and packages
+ * pi-extension-manager — manage local extensions and community packages.
  *
- * Entry point - exports the main extension function
+ * Command: /ext
  */
-import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { createAutoUpdateNotificationHandler } from "./commands/auto-update.js";
 import {
 	getExtensionsAutocompleteItems,
@@ -12,81 +12,65 @@ import {
 	showNonInteractiveHelp,
 	showUnknownCommandMessage,
 } from "./commands/registry.js";
+import { ExtensionManagerController } from "./controller.js";
 import { installPackage } from "./packages/install.js";
-import { type ContextProvider, startAutoUpdateTimer, stopAutoUpdateTimer } from "./utils/auto-update.js";
 import { tokenizeArgs } from "./utils/command.js";
 import { isPackageSource } from "./utils/format.js";
-import { getAutoUpdateConfig, hydrateAutoUpdateConfig } from "./utils/settings.js";
-import { updateExtmgrStatus } from "./utils/status.js";
-
-async function executeExtensionsCommand(args: string, ctx: ExtensionCommandContext, pi: ExtensionAPI): Promise<void> {
-	const tokens = tokenizeArgs(args);
-	const resolved = resolveCommand(tokens);
-
-	if (resolved) {
-		await runResolvedCommand(resolved, ctx, pi);
-		return;
-	}
-
-	const rawSubcommand = tokens[0];
-	if (rawSubcommand && isPackageSource(rawSubcommand)) {
-		await installPackage(args.trim(), ctx, pi);
-		return;
-	}
-
-	if (ctx.hasUI) {
-		showUnknownCommandMessage(rawSubcommand, ctx);
-	} else {
-		showNonInteractiveHelp(ctx);
-	}
-}
 
 export default function extensionsManager(pi: ExtensionAPI) {
+	const controller = new ExtensionManagerController(pi);
+
 	pi.registerCommand("ext", {
 		description: "Manage local extensions and browse/install community packages",
 		getArgumentCompletions: getExtensionsAutocompleteItems,
 		handler: async (args, ctx) => {
-			await executeExtensionsCommand(args, ctx, pi);
+			const tokens = tokenizeArgs(args);
+			const resolved = resolveCommand(tokens);
+
+			if (resolved) {
+				await runResolvedCommand(resolved, ctx, pi, controller);
+				return;
+			}
+
+			const rawSubcommand = tokens[0];
+			if (rawSubcommand && isPackageSource(rawSubcommand)) {
+				await installPackage(args.trim(), ctx, pi);
+				return;
+			}
+
+			if (ctx.hasUI) {
+				showUnknownCommandMessage(rawSubcommand, ctx);
+			} else {
+				showNonInteractiveHelp(ctx);
+			}
 		},
 	});
 
-	async function updateStatusBar(ctx: ExtensionCommandContext | ExtensionContext): Promise<void> {
-		await updateExtmgrStatus(ctx, pi);
+	function onUpdateAvailable(ctx: Parameters<typeof controller.bootstrap>[0]) {
+		return createAutoUpdateNotificationHandler(ctx);
 	}
 
-	async function bootstrapSession(ctx: ExtensionCommandContext | ExtensionContext): Promise<void> {
-		// Restore persisted auto-update config into session entries so sync lookups are valid.
-		await hydrateAutoUpdateConfig(pi, ctx);
-
-		if (!ctx.hasUI) {
-			stopAutoUpdateTimer();
-			return;
-		}
-
-		const config = getAutoUpdateConfig(ctx);
-		if (config.enabled && config.intervalMs > 0) {
-			const getCtx: ContextProvider = () => ctx;
-			startAutoUpdateTimer(pi, getCtx, createAutoUpdateNotificationHandler(ctx));
-		} else {
-			stopAutoUpdateTimer();
-		}
-
-		setImmediate(() => {
-			updateStatusBar(ctx).catch((err) => {
-				console.error("[extmgr] Status update failed:", err);
-			});
-		});
+	async function bootstrap(ctx: Parameters<typeof controller.bootstrap>[0]): Promise<void> {
+		await controller.bootstrap(ctx, onUpdateAvailable(ctx));
 	}
 
 	pi.on("session_start", async (_event, ctx) => {
-		await bootstrapSession(ctx);
+		await bootstrap(ctx);
 	});
 
 	pi.on("session_switch", async (_event, ctx) => {
-		await bootstrapSession(ctx);
+		await bootstrap(ctx);
+	});
+
+	pi.on("session_tree", async (_event, ctx) => {
+		await bootstrap(ctx);
+	});
+
+	pi.on("session_fork", async (_event, ctx) => {
+		await bootstrap(ctx);
 	});
 
 	pi.on("session_shutdown", () => {
-		stopAutoUpdateTimer();
+		controller.shutdown();
 	});
 }

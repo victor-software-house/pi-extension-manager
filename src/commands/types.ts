@@ -1,4 +1,5 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionManagerController } from "../controller.js";
 
 export type CommandId =
 	| "local"
@@ -17,6 +18,16 @@ export interface CommandDefinition {
 	id: CommandId;
 	description: string;
 	aliases?: string[];
-	runInteractive: (tokens: string[], ctx: ExtensionCommandContext, pi: ExtensionAPI) => Promise<void> | void;
-	runNonInteractive: (tokens: string[], ctx: ExtensionCommandContext, pi: ExtensionAPI) => Promise<void> | void;
+	runInteractive: (
+		tokens: string[],
+		ctx: ExtensionCommandContext,
+		pi: ExtensionAPI,
+		controller: ExtensionManagerController,
+	) => Promise<void> | void;
+	runNonInteractive: (
+		tokens: string[],
+		ctx: ExtensionCommandContext,
+		pi: ExtensionAPI,
+		controller: ExtensionManagerController,
+	) => Promise<void> | void;
 }

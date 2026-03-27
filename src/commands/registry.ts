@@ -1,5 +1,6 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
 import type { AutocompleteItem } from "@mariozechner/pi-tui";
+import type { ExtensionManagerController } from "../controller.js";
 import {
 	promptRemove,
 	removePackage,
@@ -123,8 +124,8 @@ const COMMAND_DEFINITIONS: Record<CommandId, CommandDefinition> = {
 	"auto-update": {
 		id: "auto-update",
 		description: "Configure auto-update schedule",
-		runInteractive: (tokens, ctx, pi) => handleAutoUpdateSubcommand(tokens, ctx, pi),
-		runNonInteractive: (tokens, ctx, pi) => handleAutoUpdateSubcommand(tokens, ctx, pi),
+		runInteractive: (tokens, ctx, pi, controller) => handleAutoUpdateSubcommand(tokens, ctx, pi, controller),
+		runNonInteractive: (tokens, ctx, pi, controller) => handleAutoUpdateSubcommand(tokens, ctx, pi, controller),
 	},
 };
 
@@ -157,10 +158,11 @@ export function runResolvedCommand(
 	resolved: { id: CommandId; args: string[] },
 	ctx: ExtensionCommandContext,
 	pi: ExtensionAPI,
+	controller: ExtensionManagerController,
 ): Promise<void> | void {
 	const definition = COMMAND_DEFINITIONS[resolved.id];
 	const runner = ctx.hasUI ? definition.runInteractive : definition.runNonInteractive;
-	return runner(resolved.args, ctx, pi);
+	return runner(resolved.args, ctx, pi, controller);
 }
 
 export function getExtensionsAutocompleteItems(prefix: string): AutocompleteItem[] | null {
