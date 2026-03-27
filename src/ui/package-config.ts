@@ -3,7 +3,7 @@
  */
 import type { ExtensionAPI, ExtensionCommandContext, Theme } from "@mariozechner/pi-coding-agent";
 import { DynamicBorder, getSettingsListTheme } from "@mariozechner/pi-coding-agent";
-import { Container, Key, matchesKey, type SettingItem, SettingsList, Spacer, Text } from "@mariozechner/pi-tui";
+import { Container, matchesKey, type SettingItem, SettingsList, Spacer, Text } from "@mariozechner/pi-tui";
 import { UI } from "../constants.js";
 import {
 	applyPackageExtensionStateChanges,
@@ -13,10 +13,10 @@ import {
 import type { InstalledPackage, PackageExtensionEntry, State } from "../types/index.js";
 import { fileExists } from "../utils/fs.js";
 import { logExtensionToggle } from "../utils/history.js";
-import { requireCustomUI, runCustomUI } from "../utils/mode.js";
+
 import { notify } from "../utils/notify.js";
 import { getPackageSourceKind } from "../utils/package-source.js";
-import { getSettingsListSelectedIndex } from "../utils/settings-list.js";
+
 import { runTaskWithLoader } from "./async-task.js";
 import { getChangeMarker, getPackageIcon, getScopeIcon, getStatusIcon } from "./theme.js";
 
@@ -113,94 +113,83 @@ async function showConfigurePanel(
 	staged: Map<string, State>,
 	ctx: ExtensionCommandContext,
 ): Promise<ConfigurePanelAction | undefined> {
-	return runCustomUI(ctx, "Package extension configuration", () =>
-		ctx.ui.custom<ConfigurePanelAction>((tui, theme, _keybindings, done) => {
-			const container = new Container();
-			const titleText = new Text("", 2, 0);
-			const subtitleText = new Text("", 2, 0);
-			const footerText = new Text("", 2, 0);
+	if (!ctx.hasUI) return undefined;
+	return ctx.ui.custom<ConfigurePanelAction>((tui, theme, _keybindings, done) => {
+		const container = new Container();
+		const titleText = new Text("", 2, 0);
+		const subtitleText = new Text("", 2, 0);
+		const footerText = new Text("", 2, 0);
 
-			container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
-			container.addChild(titleText);
-			container.addChild(subtitleText);
-			container.addChild(new Spacer(1));
+		container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
+		container.addChild(titleText);
+		container.addChild(subtitleText);
+		container.addChild(new Spacer(1));
 
-			const settingsItems = buildSettingItems(rows, staged, pkg, theme);
-			const rowById = new Map(rows.map((row) => [row.id, row]));
-			const syncThemedContent = (): void => {
-				titleText.setText(theme.fg("accent", theme.bold(`Configure extensions: ${pkg.name}`)));
-				subtitleText.setText(
-					theme.fg(
-						"muted",
-						`${rows.length} extension path${rows.length === 1 ? "" : "s"} • Space/Enter toggle • S save • Esc cancel`,
-					),
-				);
-				footerText.setText(theme.fg("dim", "↑↓ Navigate | Space/Enter Toggle | S Save | Esc Back"));
-
-				for (const settingsItem of settingsItems) {
-					const row = rowById.get(settingsItem.id);
-					if (!row) continue;
-					const currentState = staged.get(row.id) ?? row.originalState;
-					settingsItem.label = formatConfigRowLabel(row, currentState, pkg, theme, currentState !== row.originalState);
-				}
-			};
-			syncThemedContent();
-
-			const settingsList = new SettingsList(
-				settingsItems,
-				Math.min(rows.length + 2, UI.maxListHeight),
-				getSettingsListTheme(),
-				(id: string, newValue: string) => {
-					const row = rowById.get(id);
-					if (!row?.available) return;
-
-					const state = newValue as State;
-					staged.set(id, state);
-
-					const settingsItem = settingsItems.find((item) => item.id === id);
-					if (settingsItem) {
-						settingsItem.label = formatConfigRowLabel(row, state, pkg, theme, state !== row.originalState);
-					}
-
-					tui.requestRender();
-				},
-				() => done({ type: "cancel" }),
+		const settingsItems = buildSettingItems(rows, staged, pkg, theme);
+		const rowById = new Map(rows.map((row) => [row.id, row]));
+		const syncThemedContent = (): void => {
+			titleText.setText(theme.fg("accent", theme.bold(`Configure extensions: ${pkg.name}`)));
+			subtitleText.setText(
+				theme.fg(
+					"muted",
+					`${rows.length} extension path${rows.length === 1 ? "" : "s"} • Space/Enter toggle • S save • Esc cancel`,
+				),
 			);
+			footerText.setText(theme.fg("dim", "↑↓ Navigate | Space/Enter Toggle | S Save | Esc Back"));
 
-			container.addChild(settingsList);
-			container.addChild(new Spacer(1));
-			container.addChild(footerText);
-			container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
+			for (const settingsItem of settingsItems) {
+				const row = rowById.get(settingsItem.id);
+				if (!row) continue;
+				const currentState = staged.get(row.id) ?? row.originalState;
+				settingsItem.label = formatConfigRowLabel(row, currentState, pkg, theme, currentState !== row.originalState);
+			}
+		};
+		syncThemedContent();
 
-			return {
-				render(width: number) {
-					return container.render(width);
-				},
-				invalidate() {
-					container.invalidate();
-					syncThemedContent();
-				},
-				handleInput(data: string) {
-					if (matchesKey(data, Key.ctrl("s")) || data === "s" || data === "S") {
-						done({ type: "save" });
-						return;
-					}
+		const settingsList = new SettingsList(
+			settingsItems,
+			Math.min(rows.length + 2, UI.maxListHeight),
+			getSettingsListTheme(),
+			(id: string, newValue: string) => {
+				const row = rowById.get(id);
+				if (!row?.available) return;
 
-					const selectedIndex = getSettingsListSelectedIndex(settingsList) ?? 0;
-					const selectedId = settingsItems[selectedIndex]?.id ?? settingsItems[0]?.id;
-					const selectedRow = selectedId ? rowById.get(selectedId) : undefined;
+				const state = newValue as State;
+				staged.set(id, state);
 
-					if (selectedRow && !selectedRow.available && (data === " " || data === "\r" || data === "\n")) {
-						notify(ctx, `${selectedRow.extensionPath} is missing on disk and cannot be toggled.`, "warning");
-						return;
-					}
+				const settingsItem = settingsItems.find((item) => item.id === id);
+				if (settingsItem) {
+					settingsItem.label = formatConfigRowLabel(row, state, pkg, theme, state !== row.originalState);
+				}
 
-					settingsList.handleInput?.(data);
-					tui.requestRender();
-				},
-			};
-		}),
-	);
+				tui.requestRender();
+			},
+			() => done({ type: "cancel" }),
+		);
+
+		container.addChild(settingsList);
+		container.addChild(new Spacer(1));
+		container.addChild(footerText);
+		container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
+
+		return {
+			render(width: number) {
+				return container.render(width);
+			},
+			invalidate() {
+				container.invalidate();
+				syncThemedContent();
+			},
+			handleInput(data: string) {
+				if (matchesKey(data, "ctrl+s") || data === "s" || data === "S") {
+					done({ type: "save" });
+					return;
+				}
+				settingsList.handleInput?.(data);
+				tui.requestRender();
+			},
+		};
+	});
 }
 
 export async function applyPackageExtensionChanges(
@@ -286,7 +275,8 @@ export async function configurePackageExtensions(
 	ctx: ExtensionCommandContext,
 	pi: ExtensionAPI,
 ): Promise<{ changed: number; reloaded: boolean }> {
-	if (!requireCustomUI(ctx, "Package extension configuration")) {
+	if (!ctx.hasUI) {
+		notify(ctx, "Package extension configuration requires interactive mode.", "warning");
 		return { changed: 0, reloaded: false };
 	}
 

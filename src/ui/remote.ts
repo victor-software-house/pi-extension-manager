@@ -3,14 +3,13 @@
  */
 import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
 import { DynamicBorder } from "@mariozechner/pi-coding-agent";
-import { Container, type SelectItem, SelectList, Text } from "@mariozechner/pi-tui";
+import { Container, type SelectItem, SelectList, Text, truncateToWidth } from "@mariozechner/pi-tui";
 import { CACHE_LIMITS, PAGE_SIZE, TIMEOUTS } from "../constants.js";
 import { getSearchCache, isCacheValid, searchNpmPackages, setSearchCache } from "../packages/discovery.js";
 import { installPackage, installPackageLocally } from "../packages/install.js";
-import type { BrowseAction, NpmPackage } from "../types/index.js";
+import type { NpmPackage } from "../types/index.js";
 import { parseChoiceByLabel, splitCommandArgs } from "../utils/command.js";
-import { dynamicTruncate, formatBytes, truncate } from "../utils/format.js";
-import { requireCustomUI, runCustomUI } from "../utils/mode.js";
+import { formatBytes, truncate } from "../utils/format.js";
 import { notify } from "../utils/notify.js";
 import { execNpm } from "../utils/npm-exec.js";
 import { runTaskWithLoader } from "./async-task.js";
@@ -88,6 +87,14 @@ const packageInfoCache = new PackageInfoCache(CACHE_LIMITS.packageInfoMaxSize, C
 export function clearRemotePackageInfoCache(): void {
 	packageInfoCache.clear();
 }
+
+type BrowseAction =
+	| { type: "package"; name: string }
+	| { type: "prev" }
+	| { type: "next" }
+	| { type: "refresh" }
+	| { type: "menu" }
+	| { type: "cancel" };
 
 const REMOTE_MENU_CHOICES = {
 	browse: "Browse pi packages",
@@ -265,7 +272,7 @@ async function selectBrowseAction(
 	const items: SelectItem[] = packages.map((p) => ({
 		value: `pkg:${p.name}`,
 		label: `${p.name}${p.version ? ` @${p.version}` : ""}`,
-		description: dynamicTruncate(p.description || "No description", 35),
+		description: truncateToWidth(p.description || "No description", 35),
 	}));
 
 	if (showPrevious) {
@@ -277,66 +284,65 @@ async function selectBrowseAction(
 			label: `▶  Next page (${offset + 1}-${offset + packages.length} of ${totalResults})`,
 		});
 	}
-	items.push({ value: "nav:refresh", label: "🔄 Refresh search" });
+	items.push({ value: "nav:refresh", label: "Refresh search" });
 	items.push({ value: "nav:menu", label: "← Back to menu" });
 
-	return runCustomUI(ctx, "Remote package browsing", () =>
-		ctx.ui.custom<BrowseAction>((tui, theme, _keybindings, done) => {
-			const container = new Container();
-			const title = new Text("", 1, 0);
-			const footer = new Text("", 1, 0);
-			const syncThemedContent = (): void => {
-				title.setText(theme.fg("accent", theme.bold(titleText)));
-				footer.setText(theme.fg("dim", "↑↓ wraps • enter select • esc cancel"));
-			};
+	if (!ctx.hasUI) return undefined;
+	return ctx.ui.custom<BrowseAction>((tui, theme, _keybindings, done) => {
+		const container = new Container();
+		const title = new Text("", 1, 0);
+		const footer = new Text("", 1, 0);
+		const syncThemedContent = (): void => {
+			title.setText(theme.fg("accent", theme.bold(titleText)));
+			footer.setText(theme.fg("dim", "↑↓ wraps • enter select • esc cancel"));
+		};
 
-			container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
-			container.addChild(title);
+		container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
+		container.addChild(title);
 
-			const selectList = new SelectList(items, Math.min(items.length, 12), {
-				selectedPrefix: (t) => theme.fg("accent", t),
-				selectedText: (t) => theme.fg("accent", t),
-				description: (t) => theme.fg("muted", t),
-				scrollInfo: (t) => theme.fg("dim", t),
-				noMatch: (t) => theme.fg("warning", t),
-			});
+		const selectList = new SelectList(items, Math.min(items.length, 12), {
+			selectedPrefix: (t) => theme.fg("accent", t),
+			selectedText: (t) => theme.fg("accent", t),
+			description: (t) => theme.fg("muted", t),
+			scrollInfo: (t) => theme.fg("dim", t),
+			noMatch: (t) => theme.fg("warning", t),
+		});
 
-			selectList.onSelect = (item) => {
-				if (item.value === "nav:prev") {
-					done({ type: "prev" });
-				} else if (item.value === "nav:next") {
-					done({ type: "next" });
-				} else if (item.value === "nav:refresh") {
-					done({ type: "refresh" });
-				} else if (item.value === "nav:menu") {
-					done({ type: "menu" });
-				} else if (item.value.startsWith("pkg:")) {
-					done({ type: "package", name: item.value.slice(4) });
-				} else {
-					done({ type: "cancel" });
-				}
-			};
+		selectList.onSelect = (item) => {
+			if (item.value === "nav:prev") {
+				done({ type: "prev" });
+			} else if (item.value === "nav:next") {
+				done({ type: "next" });
+			} else if (item.value === "nav:refresh") {
+				done({ type: "refresh" });
+			} else if (item.value === "nav:menu") {
+				done({ type: "menu" });
+			} else if (item.value.startsWith("pkg:")) {
+				done({ type: "package", name: item.value.slice(4) });
+			} else {
+				done({ type: "cancel" });
+			}
+		};
 
-			selectList.onCancel = () => done({ type: "cancel" });
+		selectList.onCancel = () => done({ type: "cancel" });
 
-			syncThemedContent();
-			container.addChild(selectList);
-			container.addChild(footer);
-			container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
+		syncThemedContent();
+		container.addChild(selectList);
+		container.addChild(footer);
+		container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
 
-			return {
-				render: (w: number) => container.render(w),
-				invalidate: () => {
-					container.invalidate();
-					syncThemedContent();
-				},
-				handleInput: (data: string) => {
-					selectList.handleInput(data);
-					tui.requestRender();
-				},
-			};
-		}),
-	);
+		return {
+			render: (w: number) => container.render(w),
+			invalidate: () => {
+				container.invalidate();
+				syncThemedContent();
+			},
+			handleInput: (data: string) => {
+				selectList.handleInput(data);
+				tui.requestRender();
+			},
+		};
+	});
 }
 
 export async function browseRemotePackages(
@@ -345,13 +351,8 @@ export async function browseRemotePackages(
 	pi: ExtensionAPI,
 	offset = 0,
 ): Promise<void> {
-	if (
-		!requireCustomUI(
-			ctx,
-			"Remote package browsing",
-			"Use `/ext install <source>` to install directly outside the full interactive TUI.",
-		)
-	) {
+	if (!ctx.hasUI) {
+		notify(ctx, "Remote package browsing requires interactive mode. Use: /ext install <source>", "warning");
 		return;
 	}
 

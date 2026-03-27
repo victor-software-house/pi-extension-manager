@@ -72,25 +72,3 @@ export interface SearchCache {
 }
 
 // Action types for unified view
-export type UnifiedAction =
-	| { type: "cancel" }
-	| { type: "apply" }
-	| { type: "remote" }
-	| { type: "help" }
-	| { type: "menu" }
-	| { type: "quick"; action: "install" | "search" | "update-all" | "auto-update" }
-	| {
-			type: "action";
-			itemId: string;
-			action?: "menu" | "update" | "remove" | "details" | "configure";
-	  };
-
-export type BrowseAction =
-	| { type: "package"; name: string }
-	| { type: "prev" }
-	| { type: "next" }
-	| { type: "refresh" }
-	| { type: "menu" }
-	| { type: "main" }
-	| { type: "help" }
-	| { type: "cancel" };
