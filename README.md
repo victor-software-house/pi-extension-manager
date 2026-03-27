@@ -1,169 +1,42 @@
-# pi-extmgr
+# pi-extension-manager
 
-![pi-extmgr banner](https://i.imgur.com/Ce513Br.png)
+Interactive extension and package manager for [Pi](https://github.com/nicholasgasior/pi-coding-agent).
 
-[![CI](https://github.com/ayagmar/pi-extmgr/actions/workflows/ci.yml/badge.svg)](https://github.com/ayagmar/pi-extmgr/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-A better way to manage Pi extensions. Browse, install, enable/disable, and remove extensions from one place.
-
-**🌐 [pi-extmgr landing page](https://ayagmar.github.io/pi-extmgr)**
+Provides an `/ext` command to manage local extensions and community packages from within Pi.
 
 ## Install
 
 ```bash
-pi install npm:pi-extmgr
+pi install npm:pi-extension-manager
 ```
-
-Then reload Pi.
-
-Requires Node.js `>=22.5.0`.
-
-## Features
-
-- **Unified manager UI**
-  - Local extensions (`~/.pi/agent/extensions`, `.pi/extensions`) and installed packages in one list
-  - Scope indicators (global/project), status indicators, update badges
-- **Package extension configuration panel**
-  - Configure individual extension entrypoints inside an installed package (`c` on package row)
-  - Works with manifest-declared entrypoints and conventional `extensions/` package layouts
-  - Persists to package filters in `settings.json` (no manual JSON editing)
-- **Safe staged local extension toggles**
-  - Toggle with `Space/Enter`, apply with `S`
-  - Unsaved-change guard when leaving (save/discard/stay)
-- **Package management**
-  - Install, update, remove from UI and command line
-  - Quick actions (`A`, `u`, `X`) and bulk update (`U`)
-- **Remote discovery and install**
-  - npm search/browse with pagination
-  - Install by source (`npm:`, `git:`, `https://`, `ssh://`, `git@...`, local path)
-  - Supports direct GitHub `.ts` installs and standalone local install for self-contained packages
-  - Long-running discovery/detail screens now show dedicated loading UI, and cancellable reads can be aborted with `Esc`
-- **Auto-update**
-  - Interactive wizard (`t` in manager, or `/extensions auto-update`)
-  - Persistent schedule restored on startup and session switch
-  - Background checks + status bar updates for installed npm + git packages
-- **Operational visibility**
-  - Session history (`/extensions history`)
-  - Cache controls (`/extensions clear-cache` clears persistent + runtime extmgr caches)
-  - Status line summary (`pkg count • auto-update • known updates`)
-  - History now records local extension deletions and auto-update configuration changes
-- **Interactive + non-interactive support**
-  - Works in TUI and non-UI modes
-  - Non-interactive commands for list/install/remove/update/auto-update
 
 ## Usage
 
-Open the manager:
-
 ```
-/extensions
-```
-
-### In the manager
-
-| Key           | Action                                                |
-| ------------- | ----------------------------------------------------- |
-| `↑↓`          | Navigate                                              |
-| `Space/Enter` | Toggle local extension on/off                         |
-| `S`           | Save local extension changes                          |
-| `Enter` / `A` | Actions on selected package (configure/update/remove) |
-| `c`           | Configure selected package extensions                 |
-| `u`           | Update selected package directly                      |
-| `X`           | Remove selected item (package/local extension)        |
-| `i`           | Quick install by source                               |
-| `f`           | Quick search                                          |
-| `U`           | Update all packages                                   |
-| `t`           | Auto-update wizard                                    |
-| `P` / `M`     | Quick actions palette                                 |
-| `R`           | Browse remote packages                                |
-| `?` / `H`     | Help                                                  |
-| `Esc`         | Exit                                                  |
-
-### Commands
-
-```bash
-/extensions                      # Open interactive manager (default)
-/extensions local                # Alias: open interactive manager
-/extensions list                 # List local extensions
-/extensions remote               # Open remote package browser
-/extensions packages             # Alias: remote browser
-/extensions installed            # Installed packages view (legacy alias to unified flow)
-/extensions search <query>       # Search npm packages
-/extensions install <source> [--project|--global]  # Install package
-/extensions remove [source]      # Remove package
-/extensions uninstall [source]   # Alias: remove
-/extensions update [source]      # Update one package (or all when omitted)
-/extensions auto-update [every]  # No arg opens wizard in UI; accepts 1d, 1w, 1mo, never, etc.
-/extensions history [options]    # View change history (supports filters)
-/extensions clear-cache          # Clear persistent + runtime extmgr caches
+/ext              Open interactive manager
+/ext show         Summarize current state
+/ext list         List local extensions
+/ext installed    List installed packages
+/ext install <s>  Install a package (npm:, git:, or path)
+/ext remove <s>   Remove a package
+/ext update [s]   Update one or all packages
+/ext remote       Browse community packages
+/ext auto-update  Configure auto-update schedule
+/ext history      Show change history
+/ext verify       Check runtime dependencies
+/ext path         Show config and data paths
+/ext reset        Reset settings
+/ext help         Show help
 ```
 
-### Non-interactive mode
+## Interactive manager
 
-When Pi is running without UI, extmgr still supports command-driven workflows:
+The main `/ext` view shows local extensions and installed packages in a unified list with:
 
-- `/extensions list`
-- `/extensions installed`
-- `/extensions install <source> [--project|--global]`
-- `/extensions remove <source>`
-- `/extensions update [source]`
-- `/extensions history [options]`
-- `/extensions auto-update <duration>`
-  - Use `1mo` for monthly schedules (`/extensions history --since <duration>` also accepts `1mo`; `30m`/`24h` are just lookback examples)
-
-Remote browsing/search menus require the full interactive TUI.
-
-### RPC / limited-UI mode
-
-In RPC mode, dialog-based commands still work, but the custom TUI panels do not:
-
-- `/extensions` falls back to read-only local/package lists
-- `/extensions installed` lists packages directly
-- remote browsing/search panels require the full interactive TUI
-- package extension configuration requires the full interactive TUI
-
-History options (works in non-interactive mode too):
-
-- `--limit <n>`
-- `--action <extension_toggle|extension_delete|package_install|package_update|package_remove|cache_clear|auto_update_config>`
-- `--success` / `--failed`
-- `--package <query>`
-- `--since <duration>` (e.g. `30m`, `24h`, `7d`, `1mo`; `1mo` is supported for monthly lookbacks)
-- `--global` (non-interactive mode only; reads all persisted sessions under `~/.pi/agent/sessions`)
-
-Examples:
-
-- `/extensions history --failed --limit 50`
-- `/extensions history --action package_update --since 7d`
-- `/extensions history --global --package extmgr --since 1mo`
-
-### Install sources
-
-```bash
-/extensions install npm:package-name
-/extensions install @scope/package
-/extensions install git:https://github.com/user/repo.git
-/extensions install git:git@github.com:user/repo.git
-/extensions install ssh://git@github.com/user/repo.git
-/extensions install https://github.com/user/repo/blob/main/extension.ts
-/extensions install /path/to/extension.ts
-/extensions install ./local-folder/
-```
-
-## Tips
-
-- **Staged local changes**: Toggle local extensions on/off, then press `S` to apply all at once.
-- **Package extension config**: Select a package and press `c` (or Enter/A → Configure) to enable/disable individual package entrypoints.
-  - After saving package extension config, restart pi to fully apply changes.
-- **Two install modes**:
-  - **Managed** (npm): Auto-updates with `pi update`, stored in pi's package cache, supports Pi package manifest/convention loading
-  - **Local** (standalone): Copies to `~/.pi/agent/extensions/{package}/`, so it only accepts runnable standalone layouts (manifest-declared/root entrypoints), requires `tar` on `PATH`, and rejects packages whose runtime `dependencies` are not already bundled with the package contents
-- **Auto-update schedule is persistent**: `/extensions auto-update 1d` stays active across future Pi sessions and is restored when switching sessions.
-- **Auto-update/update badges cover npm + git packages**: extmgr now uses pi's package manager APIs for structured update detection instead of parsing `pi list` output.
-- **Settings/cache writes are hardened**: extmgr serializes writes and uses safe file replacement to reduce JSON corruption issues.
-- **Invalid JSON is handled safely**: malformed `auto-update.json` / metadata cache files are backed up and reset; invalid `.pi/settings.json` is not overwritten during package-extension toggles.
-- **Reload is built-in**: When extmgr asks to reload, it calls `ctx.reload()` directly.
+- Type-to-filter search (plain text, `/path`, `@source`)
+- View modes: Tab cycles by-source / A-Z / active-first
+- Toggle extensions with Space/Enter
+- Package actions: update, remove, configure
 
 ## License
 

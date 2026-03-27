@@ -3,96 +3,96 @@
  */
 
 export function tokenizeArgs(input: string): string[] {
-  const tokens: string[] = [];
-  let current = "";
-  let inSingleQuote = false;
-  let inDoubleQuote = false;
-  let tokenStarted = false;
+	const tokens: string[] = [];
+	let current = "";
+	let inSingleQuote = false;
+	let inDoubleQuote = false;
+	let tokenStarted = false;
 
-  const pushCurrent = () => {
-    if (tokenStarted) {
-      tokens.push(current);
-      current = "";
-      tokenStarted = false;
-    }
-  };
+	const pushCurrent = () => {
+		if (tokenStarted) {
+			tokens.push(current);
+			current = "";
+			tokenStarted = false;
+		}
+	};
 
-  for (let i = 0; i < input.length; i++) {
-    const char = input[i]!;
-    const next = input[i + 1];
+	for (let i = 0; i < input.length; i++) {
+		const char = input[i]!;
+		const next = input[i + 1];
 
-    if (inSingleQuote) {
-      if (char === "'") {
-        inSingleQuote = false;
-      } else {
-        current += char;
-      }
-      continue;
-    }
+		if (inSingleQuote) {
+			if (char === "'") {
+				inSingleQuote = false;
+			} else {
+				current += char;
+			}
+			continue;
+		}
 
-    if (inDoubleQuote) {
-      if (char === '"') {
-        inDoubleQuote = false;
-        continue;
-      }
+		if (inDoubleQuote) {
+			if (char === '"') {
+				inDoubleQuote = false;
+				continue;
+			}
 
-      if (char === "\\" && next === '"') {
-        current += next;
-        i++;
-        continue;
-      }
+			if (char === "\\" && next === '"') {
+				current += next;
+				i++;
+				continue;
+			}
 
-      current += char;
-      continue;
-    }
+			current += char;
+			continue;
+		}
 
-    if (/\s/.test(char)) {
-      pushCurrent();
-      continue;
-    }
+		if (/\s/.test(char)) {
+			pushCurrent();
+			continue;
+		}
 
-    if (char === "'") {
-      inSingleQuote = true;
-      tokenStarted = true;
-      continue;
-    }
+		if (char === "'") {
+			inSingleQuote = true;
+			tokenStarted = true;
+			continue;
+		}
 
-    if (char === '"') {
-      inDoubleQuote = true;
-      tokenStarted = true;
-      continue;
-    }
+		if (char === '"') {
+			inDoubleQuote = true;
+			tokenStarted = true;
+			continue;
+		}
 
-    if (char === "\\" && (next === '"' || next === "'" || /\s/.test(next ?? ""))) {
-      tokenStarted = true;
-      if (next) {
-        current += next;
-        i++;
-      } else {
-        current += char;
-      }
-      continue;
-    }
+		if (char === "\\" && (next === '"' || next === "'" || /\s/.test(next ?? ""))) {
+			tokenStarted = true;
+			if (next) {
+				current += next;
+				i++;
+			} else {
+				current += char;
+			}
+			continue;
+		}
 
-    tokenStarted = true;
-    current += char;
-  }
+		tokenStarted = true;
+		current += char;
+	}
 
-  pushCurrent();
-  return tokens;
+	pushCurrent();
+	return tokens;
 }
 
 export function splitCommandArgs(input: string): { subcommand: string; args: string[] } {
-  const [subcommand = "", ...args] = tokenizeArgs(input);
-  return { subcommand: subcommand.toLowerCase(), args };
+	const [subcommand = "", ...args] = tokenizeArgs(input);
+	return { subcommand: subcommand.toLowerCase(), args };
 }
 
 export function parseChoiceByLabel<T extends string>(
-  choices: Record<T, string>,
-  label: string | undefined
+	choices: Record<T, string>,
+	label: string | undefined,
 ): T | undefined {
-  if (!label) return undefined;
+	if (!label) return undefined;
 
-  const match = (Object.entries(choices) as [T, string][]).find(([, value]) => value === label);
-  return match?.[0];
+	const match = (Object.entries(choices) as [T, string][]).find(([, value]) => value === label);
+	return match?.[0];
 }
