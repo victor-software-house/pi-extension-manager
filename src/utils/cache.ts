@@ -4,6 +4,7 @@
 import { access, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { z } from "zod";
 import { CACHE_LIMITS } from "../constants.js";
 import type { InstalledPackage, NpmPackage } from "../types/index.js";
 import { parseNpmSource } from "./format.js";
@@ -38,86 +39,45 @@ interface CacheData {
 let memoryCache: CacheData | null = null;
 let cacheWriteQueue: Promise<void> = Promise.resolve();
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
+// ---------------------------------------------------------------------------
+// Zod schemas for disk deserialization
+// ---------------------------------------------------------------------------
 
-function normalizeCachedPackageEntry(key: string, value: unknown): CachedPackageData | undefined {
-	if (!isRecord(value)) return undefined;
+const CachedPackageDataSchema = z.object({
+	name: z.string().min(1),
+	description: z.string().optional(),
+	version: z.string().optional(),
+	size: z.number().nonnegative().optional(),
+	timestamp: z.number().positive(),
+});
 
-	const timestamp = value.timestamp;
-	if (typeof timestamp !== "number" || !Number.isFinite(timestamp) || timestamp <= 0) {
-		return undefined;
-	}
-
-	const name = typeof value.name === "string" && value.name.trim() ? value.name.trim() : key;
-	const entry: CachedPackageData = {
-		name,
-		timestamp,
-	};
-
-	if (typeof value.description === "string") {
-		entry.description = value.description;
-	}
-
-	if (typeof value.version === "string") {
-		entry.version = value.version;
-	}
-
-	if (typeof value.size === "number" && Number.isFinite(value.size) && value.size >= 0) {
-		entry.size = value.size;
-	}
-
-	return entry;
-}
+const CacheDiskSchema = z.object({
+	version: z.number().default(1),
+	packages: z.record(z.string(), z.unknown()).default({}),
+	lastSearch: z
+		.object({
+			query: z.string(),
+			timestamp: z.number(),
+			results: z.array(z.string()),
+			strategy: z.string().min(1),
+		})
+		.optional(),
+});
 
 function normalizeCacheFromDisk(input: unknown): CacheData {
-	if (!isRecord(input)) {
-		return { version: 1, packages: new Map() };
-	}
-
-	const version = typeof input.version === "number" && Number.isFinite(input.version) ? input.version : 1;
+	const parsed = CacheDiskSchema.safeParse(input);
+	if (!parsed.success) return { version: 1, packages: new Map() };
 
 	const packages = new Map<string, CachedPackageData>();
-	const rawPackages = isRecord(input.packages) ? input.packages : {};
-
-	for (const [name, value] of Object.entries(rawPackages)) {
-		const normalized = normalizeCachedPackageEntry(name, value);
-		if (normalized) {
-			packages.set(name, normalized);
-		}
+	for (const [key, value] of Object.entries(parsed.data.packages)) {
+		const entry = CachedPackageDataSchema.safeParse({
+			...(value as object),
+			name: (value as Record<string, unknown>)?.name ?? key,
+		});
+		if (entry.success) packages.set(key, entry.data);
 	}
 
-	let lastSearch: CacheData["lastSearch"];
-	if (isRecord(input.lastSearch)) {
-		const query = input.lastSearch.query;
-		const timestamp = input.lastSearch.timestamp;
-		const results = input.lastSearch.results;
-		const strategy = input.lastSearch.strategy;
-
-		if (
-			typeof query === "string" &&
-			typeof timestamp === "number" &&
-			Number.isFinite(timestamp) &&
-			Array.isArray(results) &&
-			typeof strategy === "string" &&
-			strategy.trim()
-		) {
-			const normalizedResults = results.filter((value): value is string => typeof value === "string");
-			lastSearch = {
-				query,
-				timestamp,
-				results: normalizedResults,
-				strategy: strategy.trim(),
-			};
-		}
-	}
-
-	return {
-		version,
-		packages,
-		lastSearch,
-	};
+	return { version: parsed.data.version, packages, lastSearch: parsed.data.lastSearch };
 }
 
 /**

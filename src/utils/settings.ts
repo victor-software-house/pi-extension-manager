@@ -309,7 +309,7 @@ export function parseDuration(input: string): { ms: number; display: string } | 
 		/^(\d+)\s*(h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks|m|mo|mos|month|months)$/,
 	);
 	if (durationMatch) {
-		const value = parseInt(durationMatch[1]!, 10);
+		const value = parseInt(durationMatch[1] ?? "", 10);
 		const unit = durationMatch[2]?.[0]; // First character of unit
 
 		let ms: number;
