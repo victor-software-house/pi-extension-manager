@@ -8,7 +8,7 @@ import {
 	updatePackage,
 	updatePackages,
 } from "../packages/management.js";
-import { showInstalledPackagesLegacy, showInteractive, showListOnly } from "../ui/manager.js";
+import { showInteractive, showListOnly } from "../ui/manager.js";
 import { showRemote } from "../ui/remote.js";
 import { notify } from "../utils/notify.js";
 import { handleAutoUpdateSubcommand } from "./auto-update.js";
