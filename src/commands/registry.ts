@@ -8,8 +8,8 @@ import {
 	updatePackage,
 	updatePackages,
 } from "../packages/management.js";
+import { showInstalledPackagesLegacy, showInteractive, showListOnly } from "../ui/manager.js";
 import { showRemote } from "../ui/remote.js";
-import { showInstalledPackagesLegacy, showInteractive, showListOnly } from "../ui/unified.js";
 import { notify } from "../utils/notify.js";
 import { handleAutoUpdateSubcommand } from "./auto-update.js";
 import { clearMetadataCacheCommand } from "./cache.js";
@@ -50,7 +50,7 @@ const COMMAND_DEFINITIONS: Record<CommandId, CommandDefinition> = {
 	local: {
 		id: "local",
 		description: "Open interactive manager (default)",
-		runInteractive: (_tokens, ctx, pi) => showInteractive(ctx, pi),
+		runInteractive: (_tokens, ctx, pi, controller) => showInteractive(ctx, pi, controller),
 		runNonInteractive: (_tokens, ctx) => showListOnly(ctx),
 	},
 	list: {
@@ -72,7 +72,7 @@ const COMMAND_DEFINITIONS: Record<CommandId, CommandDefinition> = {
 	installed: {
 		id: "installed",
 		description: "List installed packages",
-		runInteractive: (_tokens, ctx, pi) => showInstalledPackagesLegacy(ctx, pi),
+		runInteractive: (_tokens, ctx, pi) => showInstalledPackagesList(ctx, pi),
 		runNonInteractive: (_tokens, ctx, pi) => showInstalledPackagesList(ctx, pi),
 	},
 	search: {
