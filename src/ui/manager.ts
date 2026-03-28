@@ -581,8 +581,38 @@ export async function showInteractive(
 					return;
 				}
 
-				// 3. Search mode: all remaining keys go to search input
+				// 3. Search mode
 				if (searchActive) {
+					// Enter/Space in search mode acts on selected item, not search input
+					if (data === "\r" || data === "\n" || data === " " || kb.matches(data, "tui.select.confirm")) {
+						const entry = filteredItems[selectedIndex];
+						const item = entry?.type === "item" ? entry.item : undefined;
+						if (item?.kind === "local") {
+							const current = staged.get(item.id) ?? item.state;
+							const next: State = current === "enabled" ? "disabled" : "enabled";
+							staged.set(item.id, next);
+							item.state = next;
+							for (const group of groups) {
+								const found = group.items.find((i) => i.id === item.id);
+								if (found?.kind === "local") found.state = next;
+							}
+							changeCount++;
+							if (viewMode === "active-first") rebuildForMode();
+						} else if (item?.kind === "package") {
+							done({ action: "package-actions", item });
+							return;
+						}
+						tui.requestRender();
+						return;
+					}
+					// Tab cycles view even in search mode
+					if (matchesKey(data, "tab")) {
+						viewMode = nextViewMode(viewMode);
+						rebuildForMode();
+						tui.requestRender();
+						return;
+					}
+					// Everything else goes to search input
 					searchInput.handleInput(data);
 					applyFilter(searchInput.getValue());
 					tui.requestRender();
