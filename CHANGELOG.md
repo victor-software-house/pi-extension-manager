@@ -1,3 +1,10 @@
+## [0.5.3](https://github.com/victor-software-house/pi-extension-manager/compare/v0.5.2...v0.5.3) (2026-03-28)
+
+
+### Bug Fixes
+
+* separate Space (toggle) from Enter (actions), return to list after sub-actions ([b599151](https://github.com/victor-software-house/pi-extension-manager/commit/b599151ac31f3ea1cf36729fa1897e7e03c7773f))
+
 ## [0.5.2](https://github.com/victor-software-house/pi-extension-manager/compare/v0.5.1...v0.5.2) (2026-03-28)
 
 
