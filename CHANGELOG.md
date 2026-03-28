@@ -1,3 +1,10 @@
+## [0.3.2](https://github.com/victor-software-house/pi-extension-manager/compare/v0.3.1...v0.3.2) (2026-03-28)
+
+
+### Bug Fixes
+
+* single-letter shortcuts only activate when search is empty ([1dfc9bc](https://github.com/victor-software-house/pi-extension-manager/commit/1dfc9bcbae7e998d969351cbfde719634a7df235))
+
 ## [0.3.1](https://github.com/victor-software-house/pi-extension-manager/compare/v0.3.0...v0.3.1) (2026-03-28)
 
 
