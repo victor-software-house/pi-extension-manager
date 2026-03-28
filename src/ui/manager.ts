@@ -457,7 +457,7 @@ export async function showInteractive(
 					truncateToWidth(`${title}${" ".repeat(spacing)}${hint}`, width, ""),
 					theme.fg(
 						"muted",
-						`Filter: name \u00b7 /path \u00b7 @source  \u00b7  r remote  \u00b7  u update  \u00b7  x remove`,
+						`Filter: name \u00b7 /path \u00b7 @source  \u00b7  shortcuts when empty: r remote \u00b7 u update \u00b7 x remove`,
 					),
 				];
 			},
@@ -590,22 +590,25 @@ export async function showInteractive(
 					return;
 				}
 
-				if ((data === "a" || data === "A") && selectedItem?.kind === "package") {
+				// Single-letter shortcuts only when search is empty
+				const searchEmpty = searchInput.getValue() === "";
+
+				if (searchEmpty && (data === "a" || data === "A") && selectedItem?.kind === "package") {
 					done({ action: "package-actions", item: selectedItem });
 					return;
 				}
 
-				if ((data === "u" || data === "U") && selectedItem?.kind === "package") {
+				if (searchEmpty && (data === "u" || data === "U") && selectedItem?.kind === "package") {
 					done({ action: "update", item: selectedItem });
 					return;
 				}
 
-				if ((data === "x" || data === "X") && selectedItem) {
+				if (searchEmpty && (data === "x" || data === "X") && selectedItem) {
 					done({ action: "remove", item: selectedItem });
 					return;
 				}
 
-				if (data === "r" || data === "R") {
+				if (searchEmpty && (data === "r" || data === "R")) {
 					done({ action: "remote", item: undefined });
 					return;
 				}
