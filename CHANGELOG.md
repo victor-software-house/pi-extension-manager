@@ -1,3 +1,10 @@
+# [0.4.0](https://github.com/victor-software-house/pi-extension-manager/compare/v0.3.2...v0.4.0) (2026-03-28)
+
+
+### Features
+
+* add show, verify, path, reset, help commands (RTK pattern) ([a822abc](https://github.com/victor-software-house/pi-extension-manager/commit/a822abcb2b9a107288b6758e805f249d2328055c))
+
 ## [0.3.2](https://github.com/victor-software-house/pi-extension-manager/compare/v0.3.1...v0.3.2) (2026-03-28)
 
 
