@@ -38,6 +38,10 @@ The main `/extensions` view shows local extensions and installed packages in a u
 - Toggle extensions with Space/Enter
 - Package actions: update, remove, configure
 
+## Prior art
+
+This project is a rewrite of [pi-extmgr](https://github.com/ayagmar/pi-extmgr) by [@ayagmar](https://github.com/ayagmar), which provided the original extension management UI and package operations for Pi. The TUI pattern follows [pi-skills-manager](https://github.com/victor-software-house/pi-skills-manager).
+
 ## License
 
 MIT
