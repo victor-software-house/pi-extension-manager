@@ -76,7 +76,7 @@ export async function verifyRuntime(ctx: ExtensionCommandContext): Promise<void>
 	});
 
 	// Cache dir
-	const cacheDir = process.env.PI_EXTMGR_CACHE_DIR ?? join(home, ".pi", "agent", ".extmgr-cache");
+	const { DATA_DIR: cacheDir } = await import("../constants.js");
 	const cacheExists = await dirExists(cacheDir);
 	checks.push({
 		label: "Cache dir",

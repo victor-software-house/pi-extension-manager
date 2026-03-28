@@ -4,6 +4,12 @@
  * All time values are in milliseconds unless otherwise noted.
  */
 
+import { homedir } from "node:os";
+import { join } from "node:path";
+
+/** Directory for extmgr cache and settings */
+export const DATA_DIR = process.env.PI_EXTMGR_CACHE_DIR ?? join(homedir(), ".pi", "agent", ".extmgr-cache");
+
 /** File extension suffix used to disable extensions (e.g., `extension.ts.disabled`) */
 export const DISABLED_SUFFIX = ".disabled";
 

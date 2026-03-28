@@ -541,6 +541,49 @@ export async function showInteractive(
 			render: (width: number) => container.render(width),
 			invalidate: () => container.invalidate(),
 			handleInput(data: string) {
+				// --- Helpers (avoid duplication) ---
+				function isConfirmKey(d: string): boolean {
+					return d === " " || d === "\r" || d === "\n" || kb.matches(d, "tui.select.confirm");
+				}
+
+				function cycleView(): void {
+					viewMode = nextViewMode(viewMode);
+					rebuildForMode();
+					tui.requestRender();
+				}
+
+				function getSelectedItem(): Item | undefined {
+					const entry = filteredItems[selectedIndex];
+					return entry?.type === "item" ? entry.item : undefined;
+				}
+
+				function toggleLocal(item: LocalItem): void {
+					const current = staged.get(item.id) ?? item.state;
+					const next: State = current === "enabled" ? "disabled" : "enabled";
+					staged.set(item.id, next);
+					item.state = next;
+					for (const group of groups) {
+						const found = group.items.find((i) => i.id === item.id);
+						if (found?.kind === "local") found.state = next;
+					}
+					changeCount++;
+					if (viewMode === "active-first") rebuildForMode();
+				}
+
+				function handleConfirm(): boolean {
+					const item = getSelectedItem();
+					if (item?.kind === "local") {
+						toggleLocal(item);
+						tui.requestRender();
+						return true;
+					}
+					if (item?.kind === "package") {
+						done({ action: "package-actions", item });
+						return true;
+					}
+					return false;
+				}
+
 				// 1. Navigation (always active)
 				if (kb.matches(data, "tui.select.up")) {
 					selectedIndex = findNextItem(selectedIndex, -1);
@@ -567,10 +610,21 @@ export async function showInteractive(
 					return;
 				}
 
-				// 2. Cancel / Escape
+				// 2. Tab cycles view (both modes)
+				if (matchesKey(data, "tab")) {
+					cycleView();
+					return;
+				}
+
+				// 3. Confirm key acts on selected item (both modes)
+				if (isConfirmKey(data)) {
+					handleConfirm();
+					return;
+				}
+
+				// 4. Cancel / Escape
 				if (kb.matches(data, "tui.select.cancel") || matchesKey(data, "ctrl+c")) {
 					if (searchActive) {
-						// First escape clears search, second closes panel
 						searchActive = false;
 						searchInput.handleInput("\x15"); // ctrl+u clears input
 						applyFilter("");
@@ -581,38 +635,8 @@ export async function showInteractive(
 					return;
 				}
 
-				// 3. Search mode
+				// 5. Search mode: remaining keys go to search input
 				if (searchActive) {
-					// Enter/Space in search mode acts on selected item, not search input
-					if (data === "\r" || data === "\n" || data === " " || kb.matches(data, "tui.select.confirm")) {
-						const entry = filteredItems[selectedIndex];
-						const item = entry?.type === "item" ? entry.item : undefined;
-						if (item?.kind === "local") {
-							const current = staged.get(item.id) ?? item.state;
-							const next: State = current === "enabled" ? "disabled" : "enabled";
-							staged.set(item.id, next);
-							item.state = next;
-							for (const group of groups) {
-								const found = group.items.find((i) => i.id === item.id);
-								if (found?.kind === "local") found.state = next;
-							}
-							changeCount++;
-							if (viewMode === "active-first") rebuildForMode();
-						} else if (item?.kind === "package") {
-							done({ action: "package-actions", item });
-							return;
-						}
-						tui.requestRender();
-						return;
-					}
-					// Tab cycles view even in search mode
-					if (matchesKey(data, "tab")) {
-						viewMode = nextViewMode(viewMode);
-						rebuildForMode();
-						tui.requestRender();
-						return;
-					}
-					// Everything else goes to search input
 					searchInput.handleInput(data);
 					applyFilter(searchInput.getValue());
 					tui.requestRender();
@@ -621,47 +645,16 @@ export async function showInteractive(
 
 				// --- Below: normal mode (search NOT active) ---
 
-				// 4. View mode
-				if (matchesKey(data, "tab")) {
-					viewMode = nextViewMode(viewMode);
-					rebuildForMode();
-					tui.requestRender();
-					return;
-				}
-
-				// 5. Activate search
+				// 6. Activate search
 				if (data === "/" || data === "f" || data === "F") {
 					searchActive = true;
 					tui.requestRender();
 					return;
 				}
 
-				// 6. Selected item context
-				const selectedEntry = filteredItems[selectedIndex];
-				const selectedItem = selectedEntry?.type === "item" ? selectedEntry.item : undefined;
+				// 7. Shortcuts — actions on selected item
+				const selectedItem = getSelectedItem();
 
-				// 7. Toggle (Space/Enter)
-				if (data === " " || data === "\r" || data === "\n" || kb.matches(data, "tui.select.confirm")) {
-					if (selectedItem?.kind === "local") {
-						const current = staged.get(selectedItem.id) ?? selectedItem.state;
-						const next: State = current === "enabled" ? "disabled" : "enabled";
-						staged.set(selectedItem.id, next);
-						selectedItem.state = next;
-						for (const group of groups) {
-							const found = group.items.find((i) => i.id === selectedItem.id);
-							if (found?.kind === "local") found.state = next;
-						}
-						changeCount++;
-						if (viewMode === "active-first") rebuildForMode();
-					} else if (selectedItem?.kind === "package") {
-						done({ action: "package-actions", item: selectedItem });
-						return;
-					}
-					tui.requestRender();
-					return;
-				}
-
-				// 8. Shortcuts — actions on selected item
 				if ((data === "a" || data === "A") && selectedItem?.kind === "package") {
 					done({ action: "package-actions", item: selectedItem });
 					return;
@@ -683,7 +676,7 @@ export async function showInteractive(
 					return;
 				}
 
-				// 9. Global shortcuts
+				// 8. Global shortcuts
 				if (data === "i" || data === "I") {
 					done({ action: "install", item: undefined });
 					return;
@@ -759,16 +752,7 @@ export async function showInteractive(
 		}
 
 		if (panelResult.action === "details") {
-			const item = panelResult.item;
-			const parts = [
-				`Name: ${item.displayName}`,
-				`Version: ${item.version ?? "unknown"}`,
-				`Source: ${item.source}`,
-				`Scope: ${item.scope}`,
-			];
-			if (item.size !== undefined) parts.push(`Size: ${formatSize(ctx.ui.theme, item.size)}`);
-			if (item.description) parts.push(`Description: ${item.description}`);
-			ctx.ui.notify(parts.join("\n"), "info");
+			showPackageDetails(panelResult.item, ctx);
 			return;
 		}
 
@@ -816,15 +800,7 @@ export async function showInteractive(
 				const outcome = await removePackageWithOutcome(item.source, ctx, pi);
 				if (outcome.reloaded) return;
 			} else if (choice === "Details") {
-				const parts = [
-					`Name: ${item.displayName}`,
-					`Version: ${item.version ?? "unknown"}`,
-					`Source: ${item.source}`,
-					`Scope: ${item.scope}`,
-				];
-				if (item.size !== undefined) parts.push(`Size: ${formatSize(ctx.ui.theme, item.size)}`);
-				if (item.description) parts.push(`Description: ${item.description}`);
-				ctx.ui.notify(parts.join("\n"), "info");
+				showPackageDetails(item, ctx);
 			}
 		}
 		return;
@@ -867,6 +843,22 @@ async function applyStaged(staged: Map<string, State>, allItems: Item[], pi: Ext
 			logExtensionToggle(pi, id, item.originalState, targetState, false, result.error);
 		}
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Package details
+// ---------------------------------------------------------------------------
+
+function showPackageDetails(item: PackageItem, ctx: ExtensionCommandContext): void {
+	const parts = [
+		`Name: ${item.displayName}`,
+		`Version: ${item.version ?? "unknown"}`,
+		`Source: ${item.source}`,
+		`Scope: ${item.scope}`,
+	];
+	if (item.size !== undefined) parts.push(`Size: ${formatSize(ctx.ui.theme, item.size)}`);
+	if (item.description) parts.push(`Description: ${item.description}`);
+	ctx.ui.notify(parts.join("\n"), "info");
 }
 
 // ---------------------------------------------------------------------------

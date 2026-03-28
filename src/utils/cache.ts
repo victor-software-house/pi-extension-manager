@@ -2,16 +2,13 @@
  * Persistent cache for package metadata to reduce npm API calls
  */
 import { access, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
-import { CACHE_LIMITS } from "../constants.js";
+import { CACHE_LIMITS, DATA_DIR } from "../constants.js";
 import type { InstalledPackage, NpmPackage } from "../types/index.js";
 import { parseNpmSource } from "./format.js";
 
-const CACHE_DIR = process.env.PI_EXTMGR_CACHE_DIR
-	? process.env.PI_EXTMGR_CACHE_DIR
-	: join(homedir(), ".pi", "agent", ".extmgr-cache");
+const CACHE_DIR = DATA_DIR;
 const CACHE_FILE = join(CACHE_DIR, "metadata.json");
 const CURRENT_SEARCH_CACHE_STRATEGY = "npm-registry-v1-paginated";
 

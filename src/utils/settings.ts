@@ -4,9 +4,9 @@
  */
 
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import { DATA_DIR } from "../constants.js";
 import { fileExists } from "./fs.js";
 import { normalizePackageIdentity } from "./package-source.js";
 
@@ -26,9 +26,7 @@ const DEFAULT_CONFIG: AutoUpdateConfig = {
 };
 
 const SETTINGS_KEY = "extmgr-auto-update";
-const SETTINGS_DIR = process.env.PI_EXTMGR_CACHE_DIR
-	? process.env.PI_EXTMGR_CACHE_DIR
-	: join(homedir(), ".pi", "agent", ".extmgr-cache");
+const SETTINGS_DIR = DATA_DIR;
 const SETTINGS_FILE = join(SETTINGS_DIR, "auto-update.json");
 
 let settingsWriteQueue: Promise<void> = Promise.resolve();

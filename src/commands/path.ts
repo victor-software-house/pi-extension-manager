@@ -4,11 +4,12 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
+import { DATA_DIR } from "../constants.js";
 import { notify } from "../utils/notify.js";
 
 export function showPaths(ctx: ExtensionCommandContext): void {
 	const home = homedir();
-	const cacheDir = process.env.PI_EXTMGR_CACHE_DIR ?? join(home, ".pi", "agent", ".extmgr-cache");
+	const cacheDir = DATA_DIR;
 
 	const lines = [
 		"Extension Manager Paths",
