@@ -1,3 +1,10 @@
+## [0.5.2](https://github.com/victor-software-house/pi-extension-manager/compare/v0.5.1...v0.5.2) (2026-03-28)
+
+
+### Bug Fixes
+
+* Enter/Space acts on selected item even during active search ([34f41f1](https://github.com/victor-software-house/pi-extension-manager/commit/34f41f1b288e7a478314d3be8714820d50af70f5))
+
 ## [0.5.1](https://github.com/victor-software-house/pi-extension-manager/compare/v0.5.0...v0.5.1) (2026-03-28)
 
 
