@@ -1,3 +1,10 @@
+## [0.5.1](https://github.com/victor-software-house/pi-extension-manager/compare/v0.5.0...v0.5.1) (2026-03-28)
+
+
+### Bug Fixes
+
+* restore Enter key for toggle/actions with explicit \r/\n match ([a01168a](https://github.com/victor-software-house/pi-extension-manager/commit/a01168a19d3fc09bf6f3e0beb9a5ec0189272571))
+
 # [0.5.0](https://github.com/victor-software-house/pi-extension-manager/compare/v0.4.0...v0.5.0) (2026-03-28)
 
 
