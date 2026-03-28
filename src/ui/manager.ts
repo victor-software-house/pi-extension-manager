@@ -457,9 +457,9 @@ export async function showInteractive(
 					? rawKeyHint("esc", "clear search")
 					: rawKeyHint("space", "toggle") +
 						sep +
-						rawKeyHint("/", "search") +
+						rawKeyHint("enter", "actions") +
 						sep +
-						rawKeyHint("tab", "view") +
+						rawKeyHint("/", "search") +
 						sep +
 						rawKeyHint("esc", "close");
 				const hintWidth = visibleWidth(hint);
@@ -468,10 +468,13 @@ export async function showInteractive(
 				const headerLine = truncateToWidth(`${title}${" ".repeat(spacing)}${hint}`, width, "");
 
 				const shortcutLine = searchActive
-					? theme.fg("muted", `Searching: type to filter \u00b7 esc to clear`)
+					? theme.fg(
+							"muted",
+							`Filter: name \u00b7 /path \u00b7 @source  \u00b7  space toggle \u00b7 enter actions \u00b7 esc clear`,
+						)
 					: theme.fg(
 							"muted",
-							`a actions \u00b7 i install \u00b7 r remote \u00b7 u update \u00b7 U update all \u00b7 x remove \u00b7 ? help`,
+							`space toggle \u00b7 a actions \u00b7 i install \u00b7 r remote \u00b7 u update \u00b7 U all \u00b7 x remove \u00b7 ? help`,
 						);
 
 				return [headerLine, shortcutLine];
@@ -542,10 +545,6 @@ export async function showInteractive(
 			invalidate: () => container.invalidate(),
 			handleInput(data: string) {
 				// --- Helpers (avoid duplication) ---
-				function isConfirmKey(d: string): boolean {
-					return d === " " || d === "\r" || d === "\n" || kb.matches(d, "tui.select.confirm");
-				}
-
 				function cycleView(): void {
 					viewMode = nextViewMode(viewMode);
 					rebuildForMode();
@@ -570,18 +569,32 @@ export async function showInteractive(
 					if (viewMode === "active-first") rebuildForMode();
 				}
 
-				function handleConfirm(): boolean {
+				function isSpaceKey(d: string): boolean {
+					return d === " ";
+				}
+
+				function isEnterKey(d: string): boolean {
+					return d === "\r" || d === "\n" || kb.matches(d, "tui.select.confirm");
+				}
+
+				function handleToggle(): void {
 					const item = getSelectedItem();
 					if (item?.kind === "local") {
 						toggleLocal(item);
 						tui.requestRender();
-						return true;
+					} else if (item?.kind === "package") {
+						done({ action: "configure", item });
 					}
+				}
+
+				function handleEnter(): void {
+					const item = getSelectedItem();
 					if (item?.kind === "package") {
 						done({ action: "package-actions", item });
-						return true;
+					} else if (item?.kind === "local") {
+						toggleLocal(item);
+						tui.requestRender();
 					}
-					return false;
 				}
 
 				// 1. Navigation (always active)
@@ -616,9 +629,13 @@ export async function showInteractive(
 					return;
 				}
 
-				// 3. Confirm key acts on selected item (both modes)
-				if (isConfirmKey(data)) {
-					handleConfirm();
+				// 3. Space = toggle, Enter = actions/confirm (both modes)
+				if (isSpaceKey(data)) {
+					handleToggle();
+					return;
+				}
+				if (isEnterKey(data)) {
+					handleEnter();
 					return;
 				}
 
@@ -703,110 +720,19 @@ export async function showInteractive(
 
 	// Handle action signaled by the panel
 	if (panelResult) {
-		// First apply any pending staged changes (no reload prompt — we'll continue)
+		// First apply any pending staged changes
 		if (staged.size > 0) {
 			await applyStaged(staged, allItems, pi);
 		}
 
-		if (panelResult.action === "remote") {
-			await showRemote("", ctx, pi);
-			return;
-		}
+		const handled = await handlePanelAction(panelResult, ctx, pi, controller);
+		if (handled === "reload") return;
 
-		if (panelResult.action === "update") {
-			const outcome = await updatePackageWithOutcome(panelResult.item.source, ctx, pi);
-			if (outcome.reloaded) return;
-			return;
-		}
-
-		if (panelResult.action === "remove" && panelResult.item.kind === "package") {
-			const outcome = await removePackageWithOutcome(panelResult.item.source, ctx, pi);
-			if (outcome.reloaded) return;
-			return;
-		}
-
-		if (panelResult.action === "remove" && panelResult.item.kind === "local") {
-			const item = panelResult.item;
-			const confirmed = await ctx.ui.confirm(
-				"Delete Extension",
-				`Delete ${item.displayName} from disk? This cannot be undone.`,
-			);
-			if (!confirmed) return;
-			const removal = await removeLocalExtension(
-				{ activePath: item.activePath, disabledPath: item.disabledPath },
-				ctx.cwd,
-			);
-			if (!removal.ok) {
-				logExtensionDelete(pi, item.id, false, removal.error);
-				ctx.ui.notify(`Failed to remove extension: ${removal.error}`, "error");
-				return;
-			}
-			logExtensionDelete(pi, item.id, true);
-			ctx.ui.notify(`Removed ${item.displayName}.`, "info");
-			const reload = await ctx.ui.confirm("Reload Required", "Extension removed. Reload pi now?");
-			if (reload) {
-				await ctx.reload();
-				return;
-			}
-			return;
-		}
-
-		if (panelResult.action === "details") {
-			showPackageDetails(panelResult.item, ctx);
-			return;
-		}
-
-		if (panelResult.action === "configure") {
-			await configurePackageExtensions(panelResult.item.pkg, ctx, pi);
-			return;
-		}
-
-		if (panelResult.action === "install") {
-			await showRemote("install", ctx, pi);
-			return;
-		}
-
-		if (panelResult.action === "update-all") {
-			await updateAllPackages(ctx, pi);
-			return;
-		}
-
-		if (panelResult.action === "auto-update") {
-			await controller.promptAutoUpdateWizard(ctx);
-			return;
-		}
-
-		if (panelResult.action === "help") {
-			showHelpNotification(ctx);
-			return;
-		}
-
-		if (panelResult.action === "package-actions") {
-			const item = panelResult.item;
-			const choice = await ctx.ui.select(item.displayName, [
-				"Configure extensions",
-				"Update",
-				"Remove",
-				"Details",
-				"Cancel",
-			]);
-			if (!choice || choice === "Cancel") return;
-			if (choice === "Configure extensions") {
-				await configurePackageExtensions(item.pkg, ctx, pi);
-			} else if (choice === "Update") {
-				const outcome = await updatePackageWithOutcome(item.source, ctx, pi);
-				if (outcome.reloaded) return;
-			} else if (choice === "Remove") {
-				const outcome = await removePackageWithOutcome(item.source, ctx, pi);
-				if (outcome.reloaded) return;
-			} else if (choice === "Details") {
-				showPackageDetails(item, ctx);
-			}
-		}
-		return;
+		// Return to interactive list after any sub-action completes
+		return showInteractive(ctx, pi, controller);
 	}
 
-	// Panel closed normally — apply staged changes
+	// Panel closed normally (ESC) — apply staged changes
 	if (changeCount > 0 || staged.size > 0) {
 		await applyStaged(staged, allItems, pi);
 		const changed = [...staged.entries()].filter(([id]) => {
@@ -827,6 +753,111 @@ export async function showInteractive(
 // ---------------------------------------------------------------------------
 // Action handlers (called after panel closes with an action)
 // ---------------------------------------------------------------------------
+
+/** Returns "reload" if a reload was triggered, "done" otherwise. */
+async function handlePanelAction(
+	action: PanelAction,
+	ctx: ExtensionCommandContext,
+	pi: ExtensionAPI,
+	controller: ExtensionManagerController,
+): Promise<"reload" | "done"> {
+	if (action.action === "remote") {
+		await showRemote("", ctx, pi);
+		return "done";
+	}
+
+	if (action.action === "update") {
+		const outcome = await updatePackageWithOutcome(action.item.source, ctx, pi);
+		return outcome.reloaded ? "reload" : "done";
+	}
+
+	if (action.action === "remove" && action.item.kind === "package") {
+		const outcome = await removePackageWithOutcome(action.item.source, ctx, pi);
+		return outcome.reloaded ? "reload" : "done";
+	}
+
+	if (action.action === "remove" && action.item.kind === "local") {
+		const item = action.item;
+		const confirmed = await ctx.ui.confirm(
+			"Delete Extension",
+			`Delete ${item.displayName} from disk? This cannot be undone.`,
+		);
+		if (!confirmed) return "done";
+		const removal = await removeLocalExtension(
+			{ activePath: item.activePath, disabledPath: item.disabledPath },
+			ctx.cwd,
+		);
+		if (!removal.ok) {
+			logExtensionDelete(pi, item.id, false, removal.error);
+			ctx.ui.notify(`Failed to remove extension: ${removal.error}`, "error");
+			return "done";
+		}
+		logExtensionDelete(pi, item.id, true);
+		ctx.ui.notify(`Removed ${item.displayName}.`, "info");
+		const reload = await ctx.ui.confirm("Reload Required", "Extension removed. Reload pi now?");
+		if (reload) {
+			await ctx.reload();
+			return "reload";
+		}
+		return "done";
+	}
+
+	if (action.action === "details") {
+		showPackageDetails(action.item, ctx);
+		return "done";
+	}
+
+	if (action.action === "configure") {
+		await configurePackageExtensions(action.item.pkg, ctx, pi);
+		return "done";
+	}
+
+	if (action.action === "install") {
+		await showRemote("install", ctx, pi);
+		return "done";
+	}
+
+	if (action.action === "update-all") {
+		await updateAllPackages(ctx, pi);
+		return "done";
+	}
+
+	if (action.action === "auto-update") {
+		await controller.promptAutoUpdateWizard(ctx);
+		return "done";
+	}
+
+	if (action.action === "help") {
+		showHelpNotification(ctx);
+		return "done";
+	}
+
+	if (action.action === "package-actions") {
+		const item = action.item;
+		const choice = await ctx.ui.select(item.displayName, [
+			"Configure extensions",
+			"Update",
+			"Remove",
+			"Details",
+			"Cancel",
+		]);
+		if (!choice || choice === "Cancel") return "done";
+		if (choice === "Configure extensions") {
+			await configurePackageExtensions(item.pkg, ctx, pi);
+		} else if (choice === "Update") {
+			const outcome = await updatePackageWithOutcome(item.source, ctx, pi);
+			if (outcome.reloaded) return "reload";
+		} else if (choice === "Remove") {
+			const outcome = await removePackageWithOutcome(item.source, ctx, pi);
+			if (outcome.reloaded) return "reload";
+		} else if (choice === "Details") {
+			showPackageDetails(item, ctx);
+		}
+		return "done";
+	}
+
+	return "done";
+}
 
 async function applyStaged(staged: Map<string, State>, allItems: Item[], pi: ExtensionAPI): Promise<void> {
 	for (const [id, targetState] of staged) {
