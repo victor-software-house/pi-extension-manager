@@ -1,3 +1,10 @@
+# [0.5.0](https://github.com/victor-software-house/pi-extension-manager/compare/v0.4.0...v0.5.0) (2026-03-28)
+
+
+### Features
+
+* restore original shortcuts, /search activation, enable/disable commands ([df99ba3](https://github.com/victor-software-house/pi-extension-manager/commit/df99ba365586f7548327587f60ca470eebcc796b))
+
 # [0.4.0](https://github.com/victor-software-house/pi-extension-manager/compare/v0.3.2...v0.4.0) (2026-03-28)
 
 
