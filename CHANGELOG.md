@@ -1,3 +1,10 @@
+## [0.3.1](https://github.com/victor-software-house/pi-extension-manager/compare/v0.3.0...v0.3.1) (2026-03-28)
+
+
+### Bug Fixes
+
+* trigger release ([a6a9e2e](https://github.com/victor-software-house/pi-extension-manager/commit/a6a9e2edfd9ee8c75883375200f984719b40f42f))
+
 # [0.3.0](https://github.com/victor-software-house/pi-extension-manager/compare/v0.2.0...v0.3.0) (2026-03-28)
 
 
