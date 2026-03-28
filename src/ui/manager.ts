@@ -746,5 +746,5 @@ async function applyStaged(staged: Map<string, State>, allItems: Item[], pi: Ext
 
 /** @deprecated Use showInteractive with controller */
 export async function showInstalledPackagesLegacy(ctx: ExtensionCommandContext, _pi: ExtensionAPI): Promise<void> {
-	ctx.ui.notify("Use /ext to open the unified extension manager.", "info");
+	ctx.ui.notify("Use /extensions to open the unified extension manager.", "info");
 }

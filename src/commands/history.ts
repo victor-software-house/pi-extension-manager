@@ -89,7 +89,7 @@ function showHistoryHelp(ctx: ExtensionCommandContext): void {
 	notify(
 		ctx,
 		[
-			"Usage: /ext history [options]",
+			"Usage: /extensions history [options]",
 			"",
 			"  --limit <n>      Maximum entries (default: 20)",
 			`  --action <type>  ${HISTORY_ACTIONS.join(" | ")}`,
@@ -99,8 +99,8 @@ function showHistoryHelp(ctx: ExtensionCommandContext): void {
 			"  --since <d>      Entries newer than duration (e.g. 30m, 24h, 7d)",
 			"",
 			"Examples:",
-			"  /ext history --failed --limit 50",
-			"  /ext history --action package_update --since 7d",
+			"  /extensions history --failed --limit 50",
+			"  /extensions history --action package_update --since 7d",
 		].join("\n"),
 		"info",
 	);

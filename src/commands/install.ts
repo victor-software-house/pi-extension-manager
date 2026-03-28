@@ -2,7 +2,7 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-cod
 import { type InstallScope, installPackage } from "../packages/install.js";
 import { notify } from "../utils/notify.js";
 
-export const INSTALL_USAGE = "Usage: /ext install <source> [--project|--global]";
+export const INSTALL_USAGE = "Usage: /extensions install <source> [--project|--global]";
 
 interface ParsedInstallArgs {
 	source: string;

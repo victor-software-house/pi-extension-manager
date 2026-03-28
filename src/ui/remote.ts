@@ -213,7 +213,7 @@ export async function showRemote(args: string, ctx: ExtensionCommandContext, pi:
 		case "list":
 		case "installed":
 			// Legacy: redirect to unified view
-			ctx.ui.notify("Use /ext for the unified view.", "info");
+			ctx.ui.notify("Use /extensions for the unified view.", "info");
 			return;
 		case "install":
 			if (query) {
@@ -352,7 +352,7 @@ export async function browseRemotePackages(
 	offset = 0,
 ): Promise<void> {
 	if (!ctx.hasUI) {
-		notify(ctx, "Remote package browsing requires interactive mode. Use: /ext install <source>", "warning");
+		notify(ctx, "Remote package browsing requires interactive mode. Use: /extensions install <source>", "warning");
 		return;
 	}
 
@@ -515,7 +515,7 @@ async function promptInstall(ctx: ExtensionCommandContext, pi: ExtensionAPI): Pr
 	if (!ctx.hasUI) {
 		notify(
 			ctx,
-			"Interactive input not available in non-interactive mode.\nUsage: /ext install <npm:package|git:url|path>",
+			"Interactive input not available in non-interactive mode.\nUsage: /extensions install <npm:package|git:url|path>",
 			"warning",
 		);
 		return;

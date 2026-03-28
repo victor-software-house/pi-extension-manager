@@ -1,6 +1,6 @@
 # pi-extension-manager
 
-Interactive extension and package manager for Pi. Provides an `/ext` command.
+Interactive extension and package manager for Pi. Provides an `/extensions` command.
 
 ## Architecture
 
@@ -10,20 +10,20 @@ Source code in `src/`. No build step — jiti loads TypeScript directly.
 
 ### Command family (RTK pattern)
 
-- `/ext` — open interactive manager (custom TUI with search/filter)
-- `/ext show` — summarize state (counts, update status)
-- `/ext list` — list local extensions (non-interactive safe)
-- `/ext installed` — list installed packages
-- `/ext install <source>` — install a package
-- `/ext remove <source>` — remove a package
-- `/ext update [source]` — update one or all packages
-- `/ext remote` — browse/search npm packages (interactive only)
-- `/ext auto-update <duration>` — configure auto-update schedule
-- `/ext history [filters]` — show change history
-- `/ext verify` — check runtime dependencies
-- `/ext path` — show config and data paths
-- `/ext reset` — reset settings to defaults
-- `/ext help` — compact usage line
+- `/extensions` — open interactive manager (custom TUI with search/filter)
+- `/extensions show` — summarize state (counts, update status)
+- `/extensions list` — list local extensions (non-interactive safe)
+- `/extensions installed` — list installed packages
+- `/extensions install <source>` — install a package
+- `/extensions remove <source>` — remove a package
+- `/extensions update [source]` — update one or all packages
+- `/extensions remote` — browse/search npm packages (interactive only)
+- `/extensions auto-update <duration>` — configure auto-update schedule
+- `/extensions history [filters]` — show change history
+- `/extensions verify` — check runtime dependencies
+- `/extensions path` — show config and data paths
+- `/extensions reset` — reset settings to defaults
+- `/extensions help` — compact usage line
 
 ### State management
 

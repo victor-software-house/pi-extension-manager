@@ -17,7 +17,7 @@ import { handleHistorySubcommand } from "./history.js";
 import { handleInstallSubcommand, INSTALL_USAGE } from "./install.js";
 import type { CommandDefinition, CommandId } from "./types.js";
 
-const REMOVE_USAGE = "Usage: /ext remove <npm:package|git:url|path>";
+const REMOVE_USAGE = "Usage: /extensions remove <npm:package|git:url|path>";
 
 function requireInteractiveCommand(ctx: ExtensionCommandContext, feature: string): void {
 	notify(ctx, `${feature} requires interactive mode.`, "warning");
@@ -29,18 +29,18 @@ function showNonInteractiveHelp(ctx: ExtensionCommandContext): void {
 		"Remote package browsing requires interactive mode.",
 		"",
 		"Available commands:",
-		"  /ext list      - List local extensions",
-		"  /ext installed - List installed packages",
+		"  /extensions list      - List local extensions",
+		"  /extensions installed - List installed packages",
 		`  ${INSTALL_USAGE} - Install a package`,
-		"  /ext remove <source>  - Remove a package",
-		"  /ext update [source]  - Update one package or all packages",
-		"  /ext history [opts]   - Show history (supports filters)",
-		"  /ext auto-update <d>  - Configure auto-update (e.g. 1d, 1w, 1mo, never)",
+		"  /extensions remove <source>  - Remove a package",
+		"  /extensions update [source]  - Update one package or all packages",
+		"  /extensions history [opts]   - Show history (supports filters)",
+		"  /extensions auto-update <d>  - Configure auto-update (e.g. 1d, 1w, 1mo, never)",
 		"",
 		"History examples:",
-		"  /ext history --failed --limit 50",
-		"  /ext history --action package_update --since 7d",
-		"  /ext history --global --package extmgr --since 24h",
+		"  /extensions history --failed --limit 50",
+		"  /extensions history --action package_update --since 7d",
+		"  /extensions history --global --package extmgr --since 24h",
 	];
 
 	notify(ctx, lines.join("\n"), "info");

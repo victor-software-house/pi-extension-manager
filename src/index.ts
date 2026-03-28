@@ -1,7 +1,7 @@
 /**
  * pi-extension-manager — manage local extensions and community packages.
  *
- * Command: /ext
+ * Command: /extensions
  */
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { createAutoUpdateNotificationHandler } from "./commands/auto-update.js";
@@ -20,7 +20,7 @@ import { isPackageSource } from "./utils/format.js";
 export default function extensionsManager(pi: ExtensionAPI) {
 	const controller = new ExtensionManagerController(pi);
 
-	pi.registerCommand("ext", {
+	pi.registerCommand("extensions", {
 		description: "Manage local extensions and browse/install community packages",
 		getArgumentCompletions: getExtensionsAutocompleteItems,
 		handler: async (args, ctx) => {

@@ -29,7 +29,7 @@ export async function handleAutoUpdateSubcommand(
 		notify(
 			ctx,
 			[
-				"Usage: /ext auto-update <duration>",
+				"Usage: /extensions auto-update <duration>",
 				"",
 				"Examples: never | 1h | 1d | 3d | 1w | 2w | 1mo | daily | weekly",
 			].join("\n"),

@@ -9,10 +9,10 @@ Reference: `pi-skills-manager` (551 lines, single file, same archetype).
 
 ### Archetype: Operator control-surface (Archetype 3)
 
-Primary: `/ext` slash command for managing local extensions and packages.
+Primary: `/extensions` slash command for managing local extensions and packages.
 Secondary: background auto-update timer, status bar (lightweight Archetype 1).
 
-### Command: `/ext`
+### Command: `/extensions`
 
 Short, memorable, low collision risk. `/extensions` is too generic.
 
@@ -20,20 +20,20 @@ Short, memorable, low collision risk. `/extensions` is too generic.
 
 | Command | Purpose |
 |---|---|
-| `/ext` | Open interactive manager (custom TUI with search/filter) |
-| `/ext show` | Summarize: count local extensions, installed packages, update status |
-| `/ext list` | List local extensions (non-interactive safe) |
-| `/ext installed` | List installed packages (non-interactive safe) |
-| `/ext install <source>` | Install a package |
-| `/ext remove <source>` | Remove a package |
-| `/ext update [source]` | Update one or all packages |
-| `/ext remote` | Browse/search npm packages (interactive only) |
-| `/ext auto-update <duration>` | Configure auto-update schedule |
-| `/ext history [filters]` | Show change history |
-| `/ext verify` | Check runtime deps (npm available, paths writable) |
-| `/ext path` | Show config and data paths |
-| `/ext reset` | Reset settings to defaults |
-| `/ext help` | Compact usage line |
+| `/extensions` | Open interactive manager (custom TUI with search/filter) |
+| `/extensions show` | Summarize: count local extensions, installed packages, update status |
+| `/extensions list` | List local extensions (non-interactive safe) |
+| `/extensions installed` | List installed packages (non-interactive safe) |
+| `/extensions install <source>` | Install a package |
+| `/extensions remove <source>` | Remove a package |
+| `/extensions update [source]` | Update one or all packages |
+| `/extensions remote` | Browse/search npm packages (interactive only) |
+| `/extensions auto-update <duration>` | Configure auto-update schedule |
+| `/extensions history [filters]` | Show change history |
+| `/extensions verify` | Check runtime deps (npm available, paths writable) |
+| `/extensions path` | Show config and data paths |
+| `/extensions reset` | Reset settings to defaults |
+| `/extensions help` | Compact usage line |
 
 ### TUI approach: custom component (not SettingsList)
 
@@ -119,7 +119,7 @@ Keep the existing theming vocabulary from `ui/theme.ts` (status icons, scope ind
 
 1. Update `package.json`: name, repository URL, author, remove `demo` branch ref
 2. Remove emojis from `ui/remote.ts` menu constants
-3. Update help text and usage strings for `/ext` command name
+3. Update help text and usage strings for `/extensions` command name
 4. Update `README.md`
 5. Set up biome + strict tsconfig matching pi-skills-manager
 6. Add `zod` and `@tool-belt/type-predicates` as devDependencies
