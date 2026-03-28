@@ -1,3 +1,10 @@
+# [0.3.0](https://github.com/victor-software-house/pi-extension-manager/compare/v0.2.0...v0.3.0) (2026-03-28)
+
+
+### Features
+
+* rename /ext command to /extensions ([e65224e](https://github.com/victor-software-house/pi-extension-manager/commit/e65224e4cfea6e1da134bed875b04cb52d5e85be))
+
 # [0.2.0](https://github.com/victor-software-house/pi-extension-manager/compare/v0.1.0...v0.2.0) (2026-03-28)
 
 
