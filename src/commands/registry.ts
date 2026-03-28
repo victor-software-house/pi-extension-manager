@@ -15,7 +15,11 @@ import { handleAutoUpdateSubcommand } from "./auto-update.js";
 import { clearMetadataCacheCommand } from "./cache.js";
 import { handleHistorySubcommand } from "./history.js";
 import { handleInstallSubcommand, INSTALL_USAGE } from "./install.js";
+import { showPaths } from "./path.js";
+import { resetSettings } from "./reset.js";
+import { showSummary } from "./show.js";
 import type { CommandDefinition, CommandId } from "./types.js";
+import { verifyRuntime } from "./verify.js";
 
 const REMOVE_USAGE = "Usage: /extensions remove <npm:package|git:url|path>";
 
@@ -25,28 +29,36 @@ function requireInteractiveCommand(ctx: ExtensionCommandContext, feature: string
 
 function showNonInteractiveHelp(ctx: ExtensionCommandContext): void {
 	const lines = [
-		"Extension Manager (non-interactive mode)",
-		"Remote package browsing requires interactive mode.",
+		"Extension Manager",
 		"",
-		"Available commands:",
-		"  /extensions list      - List local extensions",
-		"  /extensions installed - List installed packages",
-		`  ${INSTALL_USAGE} - Install a package`,
-		"  /extensions remove <source>  - Remove a package",
-		"  /extensions update [source]  - Update one package or all packages",
-		"  /extensions history [opts]   - Show history (supports filters)",
-		"  /extensions auto-update <d>  - Configure auto-update (e.g. 1d, 1w, 1mo, never)",
-		"",
-		"History examples:",
-		"  /extensions history --failed --limit 50",
-		"  /extensions history --action package_update --since 7d",
-		"  /extensions history --global --package extmgr --since 24h",
+		"Commands:",
+		"  /extensions              - Open interactive manager",
+		"  /extensions show         - Summarize current state",
+		"  /extensions list         - List local extensions",
+		"  /extensions installed    - List installed packages",
+		`  ${INSTALL_USAGE}`,
+		"  /extensions remove <s>   - Remove a package",
+		"  /extensions update [s]   - Update one or all packages",
+		"  /extensions remote       - Browse community packages",
+		"  /extensions history      - Show change history",
+		"  /extensions auto-update  - Configure auto-update schedule",
+		"  /extensions verify       - Check runtime dependencies",
+		"  /extensions path         - Show config and data paths",
+		"  /extensions reset        - Reset settings to defaults",
+		"  /extensions help         - Show this help",
 	];
 
 	notify(ctx, lines.join("\n"), "info");
 }
 
 const COMMAND_DEFINITIONS: Record<CommandId, CommandDefinition> = {
+	show: {
+		id: "show",
+		description: "Summarize current state",
+		aliases: ["status"],
+		runInteractive: (_tokens, ctx, pi, controller) => showSummary(ctx, pi, controller),
+		runNonInteractive: (_tokens, ctx, pi, controller) => showSummary(ctx, pi, controller),
+	},
 	local: {
 		id: "local",
 		description: "Open interactive manager (default)",
@@ -126,6 +138,43 @@ const COMMAND_DEFINITIONS: Record<CommandId, CommandDefinition> = {
 		description: "Configure auto-update schedule",
 		runInteractive: (tokens, ctx, pi, controller) => handleAutoUpdateSubcommand(tokens, ctx, pi, controller),
 		runNonInteractive: (tokens, ctx, pi, controller) => handleAutoUpdateSubcommand(tokens, ctx, pi, controller),
+	},
+	verify: {
+		id: "verify",
+		description: "Check runtime dependencies",
+		runInteractive: (_tokens, ctx) => verifyRuntime(ctx),
+		runNonInteractive: (_tokens, ctx) => verifyRuntime(ctx),
+	},
+	path: {
+		id: "path",
+		description: "Show config and data paths",
+		aliases: ["paths"],
+		runInteractive: (_tokens, ctx) => {
+			showPaths(ctx);
+			return Promise.resolve();
+		},
+		runNonInteractive: (_tokens, ctx) => {
+			showPaths(ctx);
+			return Promise.resolve();
+		},
+	},
+	reset: {
+		id: "reset",
+		description: "Reset settings to defaults",
+		runInteractive: (_tokens, ctx, pi, controller) => resetSettings(ctx, pi, controller),
+		runNonInteractive: (_tokens, ctx, pi, controller) => resetSettings(ctx, pi, controller),
+	},
+	help: {
+		id: "help",
+		description: "Show usage help",
+		runInteractive: (_tokens, ctx) => {
+			showNonInteractiveHelp(ctx);
+			return Promise.resolve();
+		},
+		runNonInteractive: (_tokens, ctx) => {
+			showNonInteractiveHelp(ctx);
+			return Promise.resolve();
+		},
 	},
 };
 

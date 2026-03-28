@@ -16,19 +16,19 @@ pi install npm:pi-extension-manager
 
 ```
 /extensions              Open interactive manager
-/extensions show         Summarize current state
+/extensions show         Summarize current state (counts, updates, cache)
 /extensions list         List local extensions
 /extensions installed    List installed packages
 /extensions install <s>  Install a package (npm:, git:, or path)
 /extensions remove <s>   Remove a package
 /extensions update [s]   Update one or all packages
 /extensions remote       Browse community packages
-/extensions auto-update  Configure auto-update schedule
 /extensions history      Show change history
-/extensions verify       Check runtime dependencies
+/extensions auto-update  Configure auto-update schedule
+/extensions verify       Check runtime dependencies (npm, paths)
 /extensions path         Show config and data paths
-/extensions reset        Reset settings
-/extensions help         Show help
+/extensions reset        Reset settings to defaults
+/extensions help         Show usage help
 ```
 
 ## Interactive manager

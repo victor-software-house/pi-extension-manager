@@ -12,7 +12,12 @@ export type CommandId =
 	| "update"
 	| "history"
 	| "clear-cache"
-	| "auto-update";
+	| "auto-update"
+	| "show"
+	| "verify"
+	| "path"
+	| "reset"
+	| "help";
 
 export interface CommandDefinition {
 	id: CommandId;
