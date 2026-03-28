@@ -611,7 +611,7 @@ export async function showInteractive(
 				const selectedItem = selectedEntry?.type === "item" ? selectedEntry.item : undefined;
 
 				// 7. Toggle (Space/Enter)
-				if (data === " " || kb.matches(data, "tui.select.confirm")) {
+				if (data === " " || data === "\r" || data === "\n" || kb.matches(data, "tui.select.confirm")) {
 					if (selectedItem?.kind === "local") {
 						const current = staged.get(selectedItem.id) ?? selectedItem.state;
 						const next: State = current === "enabled" ? "disabled" : "enabled";
