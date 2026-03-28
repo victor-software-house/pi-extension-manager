@@ -17,6 +17,8 @@ export type CommandId =
 	| "verify"
 	| "path"
 	| "reset"
+	| "enable"
+	| "disable"
 	| "help";
 
 export interface CommandDefinition {

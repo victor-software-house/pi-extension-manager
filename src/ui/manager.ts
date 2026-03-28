@@ -23,7 +23,11 @@ import {
 import type { ExtensionManagerController } from "../controller.js";
 import { discoverExtensions, removeLocalExtension, setExtensionState } from "../extensions/discovery.js";
 import { getInstalledPackages } from "../packages/discovery.js";
-import { removePackageWithOutcome, updatePackageWithOutcome } from "../packages/management.js";
+import {
+	removePackageWithOutcome,
+	updatePackages as updateAllPackages,
+	updatePackageWithOutcome,
+} from "../packages/management.js";
 import type { ExtensionEntry, InstalledPackage, State } from "../types/index.js";
 import { logExtensionDelete, logExtensionToggle } from "../utils/history.js";
 import { getPackageSourceKind, normalizePackageIdentity } from "../utils/package-source.js";
@@ -351,8 +355,14 @@ export async function showListOnly(ctx: ExtensionCommandContext): Promise<void> 
 type PanelAction =
 	| { action: "package-actions"; item: PackageItem }
 	| { action: "update"; item: PackageItem }
+	| { action: "details"; item: PackageItem }
+	| { action: "configure"; item: PackageItem }
 	| { action: "remove"; item: Item }
-	| { action: "remote"; item: undefined };
+	| { action: "remote"; item: undefined }
+	| { action: "install"; item: undefined }
+	| { action: "update-all"; item: undefined }
+	| { action: "auto-update"; item: undefined }
+	| { action: "help"; item: undefined };
 
 // ---------------------------------------------------------------------------
 // Main interactive panel
@@ -393,6 +403,7 @@ export async function showInteractive(
 		let selectedIndex = filteredItems.findIndex((e) => e.type === "item");
 		if (selectedIndex < 0) selectedIndex = 0;
 		const searchInput = new Input();
+		let searchActive = false;
 
 		function findNextItem(from: number, dir: number): number {
 			let idx = from + dir;
@@ -442,24 +453,28 @@ export async function showInteractive(
 			render(width: number): string[] {
 				const title = theme.bold("Extension Manager");
 				const sep = theme.fg("muted", " \u00b7 ");
-				const hint =
-					rawKeyHint("space", "toggle") +
-					sep +
-					rawKeyHint("a", "actions") +
-					sep +
-					rawKeyHint("tab", "view") +
-					sep +
-					rawKeyHint("esc", "close");
+				const hint = searchActive
+					? rawKeyHint("esc", "clear search")
+					: rawKeyHint("space", "toggle") +
+						sep +
+						rawKeyHint("/", "search") +
+						sep +
+						rawKeyHint("tab", "view") +
+						sep +
+						rawKeyHint("esc", "close");
 				const hintWidth = visibleWidth(hint);
 				const titleWidth = visibleWidth(title);
 				const spacing = Math.max(1, width - titleWidth - hintWidth);
-				return [
-					truncateToWidth(`${title}${" ".repeat(spacing)}${hint}`, width, ""),
-					theme.fg(
-						"muted",
-						`Filter: name \u00b7 /path \u00b7 @source  \u00b7  shortcuts when empty: r remote \u00b7 u update \u00b7 x remove`,
-					),
-				];
+				const headerLine = truncateToWidth(`${title}${" ".repeat(spacing)}${hint}`, width, "");
+
+				const shortcutLine = searchActive
+					? theme.fg("muted", `Searching: type to filter \u00b7 esc to clear`)
+					: theme.fg(
+							"muted",
+							`a actions \u00b7 i install \u00b7 r remote \u00b7 u update \u00b7 U update all \u00b7 x remove \u00b7 ? help`,
+						);
+
+				return [headerLine, shortcutLine];
 			},
 		};
 
@@ -470,7 +485,9 @@ export async function showInteractive(
 			invalidate() {},
 			render(width: number): string[] {
 				const lines: string[] = [];
-				lines.push(...searchInput.render(width));
+				if (searchActive) {
+					lines.push(...searchInput.render(width));
+				}
 				lines.push("");
 
 				if (filteredItems.length === 0) {
@@ -524,7 +541,7 @@ export async function showInteractive(
 			render: (width: number) => container.render(width),
 			invalidate: () => container.invalidate(),
 			handleInput(data: string) {
-				// 1. Navigation
+				// 1. Navigation (always active)
 				if (kb.matches(data, "tui.select.up")) {
 					selectedIndex = findNextItem(selectedIndex, -1);
 					tui.requestRender();
@@ -550,13 +567,31 @@ export async function showInteractive(
 					return;
 				}
 
-				// 2. Cancel
+				// 2. Cancel / Escape
 				if (kb.matches(data, "tui.select.cancel") || matchesKey(data, "ctrl+c")) {
+					if (searchActive) {
+						// First escape clears search, second closes panel
+						searchActive = false;
+						searchInput.handleInput("\x15"); // ctrl+u clears input
+						applyFilter("");
+						tui.requestRender();
+						return;
+					}
 					done(undefined);
 					return;
 				}
 
-				// 3. View mode
+				// 3. Search mode: all remaining keys go to search input
+				if (searchActive) {
+					searchInput.handleInput(data);
+					applyFilter(searchInput.getValue());
+					tui.requestRender();
+					return;
+				}
+
+				// --- Below: normal mode (search NOT active) ---
+
+				// 4. View mode
 				if (matchesKey(data, "tab")) {
 					viewMode = nextViewMode(viewMode);
 					rebuildForMode();
@@ -564,17 +599,24 @@ export async function showInteractive(
 					return;
 				}
 
-				// 4. Toggle / actions on selected item
+				// 5. Activate search
+				if (data === "/" || data === "f" || data === "F") {
+					searchActive = true;
+					tui.requestRender();
+					return;
+				}
+
+				// 6. Selected item context
 				const selectedEntry = filteredItems[selectedIndex];
 				const selectedItem = selectedEntry?.type === "item" ? selectedEntry.item : undefined;
 
+				// 7. Toggle (Space/Enter)
 				if (data === " " || kb.matches(data, "tui.select.confirm")) {
 					if (selectedItem?.kind === "local") {
 						const current = staged.get(selectedItem.id) ?? selectedItem.state;
 						const next: State = current === "enabled" ? "disabled" : "enabled";
 						staged.set(selectedItem.id, next);
 						selectedItem.state = next;
-						// Update canonical group state for view rebuilds
 						for (const group of groups) {
 							const found = group.items.find((i) => i.id === selectedItem.id);
 							if (found?.kind === "local") found.state = next;
@@ -582,7 +624,6 @@ export async function showInteractive(
 						changeCount++;
 						if (viewMode === "active-first") rebuildForMode();
 					} else if (selectedItem?.kind === "package") {
-						// Enter on package opens actions
 						done({ action: "package-actions", item: selectedItem });
 						return;
 					}
@@ -590,33 +631,49 @@ export async function showInteractive(
 					return;
 				}
 
-				// Single-letter shortcuts only when search is empty
-				const searchEmpty = searchInput.getValue() === "";
-
-				if (searchEmpty && (data === "a" || data === "A") && selectedItem?.kind === "package") {
+				// 8. Shortcuts — actions on selected item
+				if ((data === "a" || data === "A") && selectedItem?.kind === "package") {
 					done({ action: "package-actions", item: selectedItem });
 					return;
 				}
-
-				if (searchEmpty && (data === "u" || data === "U") && selectedItem?.kind === "package") {
+				if (data === "u" && selectedItem?.kind === "package") {
 					done({ action: "update", item: selectedItem });
 					return;
 				}
-
-				if (searchEmpty && (data === "x" || data === "X") && selectedItem) {
+				if ((data === "v" || data === "V") && selectedItem?.kind === "package") {
+					done({ action: "details", item: selectedItem });
+					return;
+				}
+				if ((data === "c" || data === "C") && selectedItem?.kind === "package") {
+					done({ action: "configure", item: selectedItem });
+					return;
+				}
+				if ((data === "x" || data === "X") && selectedItem) {
 					done({ action: "remove", item: selectedItem });
 					return;
 				}
 
-				if (searchEmpty && (data === "r" || data === "R")) {
+				// 9. Global shortcuts
+				if (data === "i" || data === "I") {
+					done({ action: "install", item: undefined });
+					return;
+				}
+				if (data === "U") {
+					done({ action: "update-all", item: undefined });
+					return;
+				}
+				if (data === "t" || data === "T") {
+					done({ action: "auto-update", item: undefined });
+					return;
+				}
+				if (data === "r" || data === "R") {
 					done({ action: "remote", item: undefined });
 					return;
 				}
-
-				// 5. Fall through to search
-				searchInput.handleInput(data);
-				applyFilter(searchInput.getValue());
-				tui.requestRender();
+				if (data === "?" || data === "h" || data === "H") {
+					done({ action: "help", item: undefined });
+					return;
+				}
 			},
 		};
 	});
@@ -668,6 +725,45 @@ export async function showInteractive(
 				await ctx.reload();
 				return;
 			}
+			return;
+		}
+
+		if (panelResult.action === "details") {
+			const item = panelResult.item;
+			const parts = [
+				`Name: ${item.displayName}`,
+				`Version: ${item.version ?? "unknown"}`,
+				`Source: ${item.source}`,
+				`Scope: ${item.scope}`,
+			];
+			if (item.size !== undefined) parts.push(`Size: ${formatSize(ctx.ui.theme, item.size)}`);
+			if (item.description) parts.push(`Description: ${item.description}`);
+			ctx.ui.notify(parts.join("\n"), "info");
+			return;
+		}
+
+		if (panelResult.action === "configure") {
+			await configurePackageExtensions(panelResult.item.pkg, ctx, pi);
+			return;
+		}
+
+		if (panelResult.action === "install") {
+			await showRemote("install", ctx, pi);
+			return;
+		}
+
+		if (panelResult.action === "update-all") {
+			await updateAllPackages(ctx, pi);
+			return;
+		}
+
+		if (panelResult.action === "auto-update") {
+			await controller.promptAutoUpdateWizard(ctx);
+			return;
+		}
+
+		if (panelResult.action === "help") {
+			showHelpNotification(ctx);
 			return;
 		}
 
@@ -741,6 +837,41 @@ async function applyStaged(staged: Map<string, State>, allItems: Item[], pi: Ext
 			logExtensionToggle(pi, id, item.originalState, targetState, false, result.error);
 		}
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Help notification
+// ---------------------------------------------------------------------------
+
+function showHelpNotification(ctx: ExtensionCommandContext): void {
+	const lines = [
+		"Extension Manager — Keyboard Shortcuts",
+		"",
+		"Navigation:",
+		"  Up/Down      Navigate list",
+		"  PgUp/PgDn    Jump pages",
+		"  Tab          Cycle view mode (by-source / A-Z / active-first)",
+		"  Space/Enter  Toggle extension / open package actions",
+		"",
+		"Search:",
+		"  / or f       Activate search filter",
+		"  Esc          Clear search (or close panel if search empty)",
+		"",
+		"Item shortcuts:",
+		"  a            Actions menu (packages)",
+		"  u            Update selected package",
+		"  v            Details of selected package",
+		"  c            Configure package extensions",
+		"  x            Remove selected item",
+		"",
+		"Global shortcuts:",
+		"  i            Install a package",
+		"  U            Update all packages",
+		"  t            Auto-update wizard",
+		"  r            Browse remote packages",
+		"  ?/h          Show this help",
+	];
+	ctx.ui.notify(lines.join("\n"), "info");
 }
 
 // ---------------------------------------------------------------------------

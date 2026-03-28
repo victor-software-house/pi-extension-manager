@@ -18,6 +18,7 @@ import { handleInstallSubcommand, INSTALL_USAGE } from "./install.js";
 import { showPaths } from "./path.js";
 import { resetSettings } from "./reset.js";
 import { showSummary } from "./show.js";
+import { toggleExtension } from "./toggle.js";
 import type { CommandDefinition, CommandId } from "./types.js";
 import { verifyRuntime } from "./verify.js";
 
@@ -42,6 +43,8 @@ function showNonInteractiveHelp(ctx: ExtensionCommandContext): void {
 		"  /extensions remote       - Browse community packages",
 		"  /extensions history      - Show change history",
 		"  /extensions auto-update  - Configure auto-update schedule",
+		"  /extensions enable <n>   - Enable a local extension",
+		"  /extensions disable <n>  - Disable a local extension",
 		"  /extensions verify       - Check runtime dependencies",
 		"  /extensions path         - Show config and data paths",
 		"  /extensions reset        - Reset settings to defaults",
@@ -163,6 +166,18 @@ const COMMAND_DEFINITIONS: Record<CommandId, CommandDefinition> = {
 		description: "Reset settings to defaults",
 		runInteractive: (_tokens, ctx, pi, controller) => resetSettings(ctx, pi, controller),
 		runNonInteractive: (_tokens, ctx, pi, controller) => resetSettings(ctx, pi, controller),
+	},
+	enable: {
+		id: "enable",
+		description: "Enable a local extension",
+		runInteractive: (tokens, ctx, pi) => toggleExtension(tokens, "enabled", ctx, pi),
+		runNonInteractive: (tokens, ctx, pi) => toggleExtension(tokens, "enabled", ctx, pi),
+	},
+	disable: {
+		id: "disable",
+		description: "Disable a local extension",
+		runInteractive: (tokens, ctx, pi) => toggleExtension(tokens, "disabled", ctx, pi),
+		runNonInteractive: (tokens, ctx, pi) => toggleExtension(tokens, "disabled", ctx, pi),
 	},
 	help: {
 		id: "help",

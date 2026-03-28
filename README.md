@@ -23,6 +23,8 @@ pi install npm:pi-extension-manager
 /extensions remove <s>   Remove a package
 /extensions update [s]   Update one or all packages
 /extensions remote       Browse community packages
+/extensions enable <n>   Enable a local extension
+/extensions disable <n>  Disable a local extension
 /extensions history      Show change history
 /extensions auto-update  Configure auto-update schedule
 /extensions verify       Check runtime dependencies (npm, paths)
