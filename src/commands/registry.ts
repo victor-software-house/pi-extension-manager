@@ -78,7 +78,9 @@ const COMMAND_DEFINITIONS: Record<CommandId, CommandDefinition> = {
 		id: "remote",
 		description: "Browse community packages",
 		aliases: ["packages"],
-		runInteractive: (tokens, ctx, pi) => showRemote(tokens.join(" "), ctx, pi),
+		runInteractive: async (tokens, ctx, pi) => {
+			await showRemote(tokens.join(" "), ctx, pi);
+		},
 		runNonInteractive: (_tokens, ctx) => {
 			requireInteractiveCommand(ctx, "Remote package browsing");
 			showNonInteractiveHelp(ctx);
@@ -93,7 +95,9 @@ const COMMAND_DEFINITIONS: Record<CommandId, CommandDefinition> = {
 	search: {
 		id: "search",
 		description: "Search npm for packages",
-		runInteractive: (tokens, ctx, pi) => showRemote(`search ${tokens.join(" ")}`, ctx, pi),
+		runInteractive: async (tokens, ctx, pi) => {
+			await showRemote(`search ${tokens.join(" ")}`, ctx, pi);
+		},
 		runNonInteractive: (_tokens, ctx) => {
 			requireInteractiveCommand(ctx, "Search");
 			showNonInteractiveHelp(ctx);
@@ -102,8 +106,13 @@ const COMMAND_DEFINITIONS: Record<CommandId, CommandDefinition> = {
 	install: {
 		id: "install",
 		description: "Install a package",
-		runInteractive: (tokens, ctx, pi) =>
-			tokens.length > 0 ? handleInstallSubcommand(tokens, ctx, pi) : showRemote("install", ctx, pi),
+		runInteractive: async (tokens, ctx, pi) => {
+			if (tokens.length > 0) {
+				await handleInstallSubcommand(tokens, ctx, pi);
+				return;
+			}
+			await showRemote("install", ctx, pi);
+		},
 		runNonInteractive: (tokens, ctx, pi) =>
 			tokens.length > 0 ? handleInstallSubcommand(tokens, ctx, pi) : notify(ctx, INSTALL_USAGE, "info"),
 	},

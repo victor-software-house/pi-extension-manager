@@ -17,7 +17,13 @@ import { execNpm } from "../utils/npm-exec.js";
 import { normalizePackageIdentity } from "../utils/package-source.js";
 import { clearUpdatesAvailable } from "../utils/settings.js";
 import { updateExtmgrStatus } from "../utils/status.js";
-import { confirmAction, confirmReload, showProgress } from "../utils/ui-helpers.js";
+import {
+	confirmAction,
+	handleReloadRequirement,
+	noReloadOutcome,
+	type ReloadMode,
+	showProgress,
+} from "../utils/ui-helpers.js";
 import { getPackageCatalog } from "./catalog.js";
 import { clearSearchCache } from "./discovery.js";
 import { discoverPackageExtensionEntrypoints, readPackageManifest } from "./extensions.js";
@@ -26,6 +32,12 @@ export type InstallScope = "global" | "project";
 
 export interface InstallOptions {
 	scope?: InstallScope;
+	reloadMode?: ReloadMode;
+}
+
+export interface InstallOutcome {
+	reloaded: boolean;
+	reloadRequired: boolean;
 }
 
 function getProgressMessage(event: ProgressEvent, fallback: string): string {
@@ -155,11 +167,11 @@ export async function installPackage(
 	ctx: ExtensionCommandContext,
 	pi: ExtensionAPI,
 	options?: InstallOptions,
-): Promise<void> {
+): Promise<InstallOutcome> {
 	const scope = await resolveInstallScope(ctx, options?.scope);
 	if (!scope) {
 		notify(ctx, "Installation cancelled.", "info");
-		return;
+		return noReloadOutcome();
 	}
 
 	// Check if it's a GitHub URL to a .ts file - handle as direct download
@@ -168,15 +180,25 @@ export async function installPackage(
 	if (githubInfo) {
 		const rawUrl = `https://raw.githubusercontent.com/${githubInfo.owner}/${githubInfo.repo}/${githubInfo.branch}/${githubInfo.filePath}`;
 		const fileName = githubInfo.filePath.split("/").pop() || `${githubInfo.owner}-${githubInfo.repo}.ts`;
-		await installFromUrl(rawUrl, fileName, ctx, pi, { scope });
-		return;
+		return installFromUrl(
+			rawUrl,
+			fileName,
+			ctx,
+			pi,
+			options?.reloadMode ? { scope, reloadMode: options.reloadMode } : { scope },
+		);
 	}
 
 	// Check if it's already a raw URL to a .ts file
 	if (source.match(/^https:\/\/raw\.githubusercontent\.com\/.*\.ts$/)) {
 		const fileName = source.split("/").pop() || "extension.ts";
-		await installFromUrl(source, fileName, ctx, pi, { scope });
-		return;
+		return installFromUrl(
+			source,
+			fileName,
+			ctx,
+			pi,
+			options?.reloadMode ? { scope, reloadMode: options.reloadMode } : { scope },
+		);
 	}
 
 	const normalized = normalizePackageSource(source);
@@ -185,7 +207,7 @@ export async function installPackage(
 	const confirmed = await confirmAction(ctx, "Install Package", `Install ${normalized} (${scope})?`);
 	if (!confirmed) {
 		notify(ctx, "Installation cancelled.", "info");
-		return;
+		return noReloadOutcome();
 	}
 
 	showProgress(ctx, "Installing", normalized);
@@ -211,7 +233,7 @@ export async function installPackage(
 		logPackageInstall(pi, normalized, normalized, undefined, scope, false, errorMsg);
 		notifyError(ctx, errorMsg);
 		void updateExtmgrStatus(ctx, pi);
-		return;
+		return noReloadOutcome();
 	}
 
 	clearSearchCache();
@@ -219,10 +241,12 @@ export async function installPackage(
 	success(ctx, `Installed ${normalized} (${scope})`);
 	clearUpdatesAvailable(pi, ctx, [normalizePackageIdentity(normalized)]);
 
-	const reloaded = await confirmReload(ctx, "Package installed.");
-	if (!reloaded) {
+	const reloadOutcome = await handleReloadRequirement(ctx, "Package installed.", options?.reloadMode);
+	if (!reloadOutcome.reloaded) {
 		void updateExtmgrStatus(ctx, pi);
 	}
+
+	return reloadOutcome;
 }
 
 export async function installFromUrl(
@@ -231,11 +255,11 @@ export async function installFromUrl(
 	ctx: ExtensionCommandContext,
 	pi: ExtensionAPI,
 	options?: InstallOptions,
-): Promise<void> {
+): Promise<InstallOutcome> {
 	const scope = await resolveInstallScope(ctx, options?.scope);
 	if (!scope) {
 		notify(ctx, "Installation cancelled.", "info");
-		return;
+		return noReloadOutcome();
 	}
 
 	const extensionDir = getExtensionInstallDir(ctx, scope);
@@ -244,7 +268,7 @@ export async function installFromUrl(
 	const confirmed = await confirmAction(ctx, "Install from URL", `Download ${fileName} to ${scope} extensions?`);
 	if (!confirmed) {
 		notify(ctx, "Installation cancelled.", "info");
-		return;
+		return noReloadOutcome();
 	}
 
 	const result = await tryOperation(
@@ -270,17 +294,19 @@ export async function installFromUrl(
 	if (!result) {
 		logPackageInstall(pi, url, fileName, undefined, scope, false, "Installation failed");
 		void updateExtmgrStatus(ctx, pi);
-		return;
+		return noReloadOutcome();
 	}
 
 	const { fileName: name, destPath } = result;
 	logPackageInstall(pi, url, name, undefined, scope, true);
 	success(ctx, `Installed ${name} to:\n${destPath}`);
 
-	const reloaded = await confirmReload(ctx, "Extension installed.");
-	if (!reloaded) {
+	const reloadOutcome = await handleReloadRequirement(ctx, "Extension installed.", options?.reloadMode);
+	if (!reloadOutcome.reloaded) {
 		void updateExtmgrStatus(ctx, pi);
 	}
+
+	return reloadOutcome;
 }
 
 /**
@@ -310,11 +336,11 @@ export async function installPackageLocally(
 	ctx: ExtensionCommandContext,
 	pi: ExtensionAPI,
 	options?: InstallOptions,
-): Promise<void> {
+): Promise<InstallOutcome> {
 	const scope = await resolveInstallScope(ctx, options?.scope);
 	if (!scope) {
 		notify(ctx, "Installation cancelled.", "info");
-		return;
+		return noReloadOutcome();
 	}
 
 	const extensionDir = getExtensionInstallDir(ctx, scope);
@@ -327,7 +353,7 @@ export async function installPackageLocally(
 	);
 	if (!confirmed) {
 		notify(ctx, "Installation cancelled.", "info");
-		return;
+		return noReloadOutcome();
 	}
 
 	const result = await tryOperation(
@@ -357,7 +383,7 @@ export async function installPackageLocally(
 	if (!result) {
 		logPackageInstall(pi, `npm:${packageName}`, packageName, undefined, scope, false, "Failed to fetch package info");
 		void updateExtmgrStatus(ctx, pi);
-		return;
+		return noReloadOutcome();
 	}
 	const { version, tarballUrl } = result;
 
@@ -366,7 +392,7 @@ export async function installPackageLocally(
 		notifyError(ctx, tarAvailability.error);
 		logPackageInstall(pi, `npm:${packageName}`, packageName, version, scope, false, tarAvailability.error);
 		void updateExtmgrStatus(ctx, pi);
-		return;
+		return noReloadOutcome();
 	}
 
 	// Download and extract
@@ -396,7 +422,7 @@ export async function installPackageLocally(
 		await cleanupStandaloneTempArtifacts(tempDir);
 		logPackageInstall(pi, `npm:${packageName}`, packageName, version, scope, false, "Download failed");
 		void updateExtmgrStatus(ctx, pi);
-		return;
+		return noReloadOutcome();
 	}
 	const { tarballPath } = extractResult;
 
@@ -441,7 +467,7 @@ export async function installPackageLocally(
 		await cleanupStandaloneTempArtifacts(tempDir, extractDir);
 		logPackageInstall(pi, `npm:${packageName}`, packageName, version, scope, false, "Extraction failed");
 		void updateExtmgrStatus(ctx, pi);
-		return;
+		return noReloadOutcome();
 	}
 
 	// Copy to extensions dir
@@ -464,15 +490,17 @@ export async function installPackageLocally(
 	if (!destResult) {
 		logPackageInstall(pi, `npm:${packageName}`, packageName, version, scope, false, "Failed to copy extension");
 		void updateExtmgrStatus(ctx, pi);
-		return;
+		return noReloadOutcome();
 	}
 
 	clearSearchCache();
 	logPackageInstall(pi, `npm:${packageName}`, packageName, version, scope, true);
 	success(ctx, `Installed ${packageName}@${version} locally to:\n${destResult}`);
 
-	const reloaded = await confirmReload(ctx, "Extension installed.");
-	if (!reloaded) {
+	const reloadOutcome = await handleReloadRequirement(ctx, "Extension installed.", options?.reloadMode);
+	if (!reloadOutcome.reloaded) {
 		void updateExtmgrStatus(ctx, pi);
 	}
+
+	return reloadOutcome;
 }

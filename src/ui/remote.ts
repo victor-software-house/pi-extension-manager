@@ -12,7 +12,12 @@ import { parseChoiceByLabel, splitCommandArgs } from "../utils/command.js";
 import { formatBytes, truncate } from "../utils/format.js";
 import { notify } from "../utils/notify.js";
 import { execNpm } from "../utils/npm-exec.js";
+import { noReloadOutcome, type ReloadMode, type ReloadOutcome } from "../utils/ui-helpers.js";
 import { runTaskWithLoader } from "./async-task.js";
+
+interface RemoteOptions {
+	reloadMode?: ReloadMode;
+}
 
 interface PackageInfoCacheEntry {
 	timestamp: number;
@@ -205,7 +210,12 @@ async function buildPackageInfoText(
 	return text;
 }
 
-export async function showRemote(args: string, ctx: ExtensionCommandContext, pi: ExtensionAPI): Promise<void> {
+export async function showRemote(
+	args: string,
+	ctx: ExtensionCommandContext,
+	pi: ExtensionAPI,
+	options?: RemoteOptions,
+): Promise<ReloadOutcome> {
 	const { subcommand: sub, args: rest } = splitCommandArgs(args);
 	const query = rest.join(" ").trim();
 
@@ -214,29 +224,30 @@ export async function showRemote(args: string, ctx: ExtensionCommandContext, pi:
 		case "installed":
 			// Legacy: redirect to unified view
 			ctx.ui.notify("Use /extensions for the unified view.", "info");
-			return;
+			return noReloadOutcome();
 		case "install":
 			if (query) {
-				await installPackage(query, ctx, pi);
+				return installPackage(query, ctx, pi, options?.reloadMode ? { reloadMode: options.reloadMode } : undefined);
 			} else {
-				await promptInstall(ctx, pi);
+				return promptInstall(ctx, pi, options);
 			}
-			return;
 		case "search":
-			await searchPackages(query, ctx, pi);
-			return;
+			return searchPackages(query, ctx, pi, options);
 		case "browse":
 		case "":
-			await browseRemotePackages(ctx, "keywords:pi-package", pi);
-			return;
+			return browseRemotePackages(ctx, "keywords:pi-package", pi, 0, options);
 	}
 
 	// Show remote menu
-	await showRemoteMenu(ctx, pi);
+	return showRemoteMenu(ctx, pi, options);
 }
 
-async function showRemoteMenu(ctx: ExtensionCommandContext, pi: ExtensionAPI): Promise<void> {
-	if (!ctx.hasUI) return;
+async function showRemoteMenu(
+	ctx: ExtensionCommandContext,
+	pi: ExtensionAPI,
+	options?: RemoteOptions,
+): Promise<ReloadOutcome> {
+	if (!ctx.hasUI) return noReloadOutcome();
 
 	const choice = parseChoiceByLabel(
 		REMOTE_MENU_CHOICES,
@@ -245,16 +256,13 @@ async function showRemoteMenu(ctx: ExtensionCommandContext, pi: ExtensionAPI): P
 
 	switch (choice) {
 		case "browse":
-			await browseRemotePackages(ctx, "keywords:pi-package", pi);
-			return;
+			return browseRemotePackages(ctx, "keywords:pi-package", pi, 0, options);
 		case "search":
-			await promptSearch(ctx, pi);
-			return;
+			return promptSearch(ctx, pi, options);
 		case "install":
-			await promptInstall(ctx, pi);
-			return;
+			return promptInstall(ctx, pi, options);
 		default:
-			return;
+			return noReloadOutcome();
 	}
 }
 
@@ -350,10 +358,11 @@ export async function browseRemotePackages(
 	query: string,
 	pi: ExtensionAPI,
 	offset = 0,
-): Promise<void> {
+	options?: RemoteOptions,
+): Promise<ReloadOutcome> {
 	if (!ctx.hasUI) {
 		notify(ctx, "Remote package browsing requires interactive mode. Use: /extensions install <source>", "warning");
-		return;
+		return noReloadOutcome();
 	}
 
 	let allPackages: NpmPackage[] | undefined;
@@ -380,7 +389,7 @@ export async function browseRemotePackages(
 
 		if (!results) {
 			notify(ctx, "Remote package search was cancelled.", "info");
-			return;
+			return noReloadOutcome();
 		}
 
 		allPackages = results;
@@ -400,9 +409,9 @@ export async function browseRemotePackages(
 		ctx.ui.notify(msg, "info");
 
 		if (offset > 0) {
-			await browseRemotePackages(ctx, query, pi, 0);
+			return browseRemotePackages(ctx, query, pi, 0, options);
 		}
-		return;
+		return noReloadOutcome();
 	}
 
 	// Add navigation options
@@ -417,27 +426,22 @@ export async function browseRemotePackages(
 	const result = await selectBrowseAction(ctx, titleText, packages, offset, totalResults, showPrevious, showLoadMore);
 
 	if (!result || result.type === "cancel") {
-		return;
+		return noReloadOutcome();
 	}
 
 	// Handle result
 	switch (result.type) {
 		case "prev":
-			await browseRemotePackages(ctx, query, pi, Math.max(0, offset - PAGE_SIZE));
-			return;
+			return browseRemotePackages(ctx, query, pi, Math.max(0, offset - PAGE_SIZE), options);
 		case "next":
-			await browseRemotePackages(ctx, query, pi, offset + PAGE_SIZE);
-			return;
+			return browseRemotePackages(ctx, query, pi, offset + PAGE_SIZE, options);
 		case "refresh":
 			setSearchCache(null);
-			await browseRemotePackages(ctx, query, pi, 0);
-			return;
+			return browseRemotePackages(ctx, query, pi, 0, options);
 		case "menu":
-			await showRemoteMenu(ctx, pi);
-			return;
+			return showRemoteMenu(ctx, pi, options);
 		case "package":
-			await showPackageDetails(result.name, ctx, pi, query, offset);
-			return;
+			return showPackageDetails(result.name, ctx, pi, query, offset, options);
 	}
 }
 
@@ -447,10 +451,11 @@ async function showPackageDetails(
 	pi: ExtensionAPI,
 	previousQuery: string,
 	previousOffset: number,
-): Promise<void> {
+	options?: RemoteOptions,
+): Promise<ReloadOutcome> {
 	if (!ctx.hasUI) {
 		console.log(`Package: ${packageName}`);
-		return;
+		return noReloadOutcome();
 	}
 
 	const choice = parseChoiceByLabel(
@@ -460,11 +465,19 @@ async function showPackageDetails(
 
 	switch (choice) {
 		case "installManaged":
-			await installPackage(`npm:${packageName}`, ctx, pi);
-			return;
+			return installPackage(
+				`npm:${packageName}`,
+				ctx,
+				pi,
+				options?.reloadMode ? { reloadMode: options.reloadMode } : undefined,
+			);
 		case "installStandalone":
-			await installPackageLocally(packageName, ctx, pi);
-			return;
+			return installPackageLocally(
+				packageName,
+				ctx,
+				pi,
+				options?.reloadMode ? { reloadMode: options.reloadMode } : undefined,
+			);
 		case "viewInfo":
 			try {
 				const text = await runTaskWithLoader(
@@ -478,8 +491,7 @@ async function showPackageDetails(
 
 				if (!text) {
 					notify(ctx, `Loading ${packageName} details was cancelled.`, "info");
-					await showPackageDetails(packageName, ctx, pi, previousQuery, previousOffset);
-					return;
+					return showPackageDetails(packageName, ctx, pi, previousQuery, previousOffset, options);
 				}
 
 				ctx.ui.notify(text, "info");
@@ -487,40 +499,50 @@ async function showPackageDetails(
 				const message = error instanceof Error ? error.message : String(error);
 				ctx.ui.notify(`Package: ${packageName}\n${message}`, "warning");
 			}
-			await showPackageDetails(packageName, ctx, pi, previousQuery, previousOffset);
-			return;
+			return showPackageDetails(packageName, ctx, pi, previousQuery, previousOffset, options);
 		case "back":
-			await browseRemotePackages(ctx, previousQuery, pi, previousOffset);
-			return;
+			return browseRemotePackages(ctx, previousQuery, pi, previousOffset, options);
 		default:
-			return;
+			return noReloadOutcome();
 	}
 }
 
-async function promptSearch(ctx: ExtensionCommandContext, pi: ExtensionAPI): Promise<void> {
+async function promptSearch(
+	ctx: ExtensionCommandContext,
+	pi: ExtensionAPI,
+	options?: RemoteOptions,
+): Promise<ReloadOutcome> {
 	const query = await ctx.ui.input("Search packages", "keywords:pi-package");
-	if (!query?.trim()) return;
-	await searchPackages(query.trim(), ctx, pi);
+	if (!query?.trim()) return noReloadOutcome();
+	return searchPackages(query.trim(), ctx, pi, options);
 }
 
-async function searchPackages(query: string, ctx: ExtensionCommandContext, pi: ExtensionAPI): Promise<void> {
+async function searchPackages(
+	query: string,
+	ctx: ExtensionCommandContext,
+	pi: ExtensionAPI,
+	options?: RemoteOptions,
+): Promise<ReloadOutcome> {
 	if (!query) {
-		await promptSearch(ctx, pi);
-		return;
+		return promptSearch(ctx, pi, options);
 	}
-	await browseRemotePackages(ctx, query, pi);
+	return browseRemotePackages(ctx, query, pi, 0, options);
 }
 
-async function promptInstall(ctx: ExtensionCommandContext, pi: ExtensionAPI): Promise<void> {
+async function promptInstall(
+	ctx: ExtensionCommandContext,
+	pi: ExtensionAPI,
+	options?: RemoteOptions,
+): Promise<ReloadOutcome> {
 	if (!ctx.hasUI) {
 		notify(
 			ctx,
 			"Interactive input not available in non-interactive mode.\nUsage: /extensions install <npm:package|git:url|path>",
 			"warning",
 		);
-		return;
+		return noReloadOutcome();
 	}
 	const source = await ctx.ui.input("Install package", "npm:@scope/pkg or git:https://...");
-	if (!source) return;
-	await installPackage(source.trim(), ctx, pi);
+	if (!source) return noReloadOutcome();
+	return installPackage(source.trim(), ctx, pi, options?.reloadMode ? { reloadMode: options.reloadMode } : undefined);
 }

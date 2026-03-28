@@ -16,6 +16,7 @@ import { logExtensionToggle } from "../utils/history.js";
 
 import { notify } from "../utils/notify.js";
 import { getPackageSourceKind } from "../utils/package-source.js";
+import type { ReloadMode } from "../utils/ui-helpers.js";
 
 import { runTaskWithLoader } from "./async-task.js";
 import { getChangeMarker, getPackageIcon, getScopeIcon, getStatusIcon } from "./theme.js";
@@ -26,6 +27,10 @@ export interface PackageConfigRow {
 	summary: string;
 	originalState: State;
 	available: boolean;
+}
+
+interface PackageConfigOptions {
+	restartMode?: ReloadMode;
 }
 
 type ConfigurePanelAction = { type: "cancel" } | { type: "save" };
@@ -274,16 +279,17 @@ export async function configurePackageExtensions(
 	pkg: InstalledPackage,
 	ctx: ExtensionCommandContext,
 	pi: ExtensionAPI,
-): Promise<{ changed: number; reloaded: boolean }> {
+	options?: PackageConfigOptions,
+): Promise<{ changed: number; reloaded: boolean; restartRequired: boolean }> {
 	if (!ctx.hasUI) {
 		notify(ctx, "Package extension configuration requires interactive mode.", "warning");
-		return { changed: 0, reloaded: false };
+		return { changed: 0, reloaded: false, restartRequired: false };
 	}
 
 	const validation = await validatePackageExtensionSettings(pkg.scope, ctx.cwd);
 	if (!validation.ok) {
 		notify(ctx, validation.error, "error");
-		return { changed: 0, reloaded: false };
+		return { changed: 0, reloaded: false, restartRequired: false };
 	}
 
 	let initialData: { rows: PackageConfigRow[] } | undefined;
@@ -303,19 +309,19 @@ export async function configurePackageExtensions(
 		);
 	} catch (error) {
 		notify(ctx, error instanceof Error ? error.message : String(error), "error");
-		return { changed: 0, reloaded: false };
+		return { changed: 0, reloaded: false, restartRequired: false };
 	}
 
 	if (!initialData) {
 		notify(ctx, "Package extension configuration requires the full interactive TUI.", "warning");
-		return { changed: 0, reloaded: false };
+		return { changed: 0, reloaded: false, restartRequired: false };
 	}
 
 	const { rows } = initialData;
 
 	if (rows.length === 0) {
 		notify(ctx, "No configurable extensions discovered for this package.", "info");
-		return { changed: 0, reloaded: false };
+		return { changed: 0, reloaded: false, restartRequired: false };
 	}
 
 	const staged = new Map<string, State>();
@@ -323,13 +329,13 @@ export async function configurePackageExtensions(
 	while (true) {
 		const action = await showConfigurePanel(pkg, rows, staged, ctx);
 		if (!action) {
-			return { changed: 0, reloaded: false };
+			return { changed: 0, reloaded: false, restartRequired: false };
 		}
 
 		if (action.type === "cancel") {
 			const pending = getPendingChangeCount(rows, staged);
 			if (pending === 0) {
-				return { changed: 0, reloaded: false };
+				return { changed: 0, reloaded: false, restartRequired: false };
 			}
 
 			const choice = await ctx.ui.select(`Unsaved changes (${pending})`, [
@@ -343,7 +349,7 @@ export async function configurePackageExtensions(
 			}
 
 			if (choice === "Discard changes") {
-				return { changed: 0, reloaded: false };
+				return { changed: 0, reloaded: false, restartRequired: false };
 			}
 		}
 
@@ -357,16 +363,20 @@ export async function configurePackageExtensions(
 			);
 		} else if (apply.changed === 0) {
 			notify(ctx, "No changes to apply.", "info");
-			return { changed: 0, reloaded: false };
+			return { changed: 0, reloaded: false, restartRequired: false };
 		} else {
 			notify(ctx, `Applied ${apply.changed} package extension change(s).`, "info");
 		}
 
 		if (apply.changed === 0) {
-			return { changed: 0, reloaded: false };
+			return { changed: 0, reloaded: false, restartRequired: false };
+		}
+
+		if (options?.restartMode === "defer") {
+			return { changed: apply.changed, reloaded: false, restartRequired: true };
 		}
 
 		const restarted = await promptRestartForPackageConfig(ctx);
-		return { changed: apply.changed, reloaded: restarted };
+		return { changed: apply.changed, reloaded: restarted, restartRequired: !restarted };
 	}
 }

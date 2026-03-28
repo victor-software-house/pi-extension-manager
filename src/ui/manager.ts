@@ -25,7 +25,7 @@ import { discoverExtensions, removeLocalExtension, setExtensionState } from "../
 import { getInstalledPackages } from "../packages/discovery.js";
 import {
 	removePackageWithOutcome,
-	updatePackages as updateAllPackages,
+	updatePackagesWithOutcome as updateAllPackagesWithOutcome,
 	updatePackageWithOutcome,
 } from "../packages/management.js";
 import type { ExtensionEntry, InstalledPackage, State } from "../types/index.js";
@@ -364,6 +364,23 @@ type PanelAction =
 	| { action: "auto-update"; item: undefined }
 	| { action: "help"; item: undefined };
 
+interface InteractiveSessionFlags {
+	reloadRequired: boolean;
+	restartRequired: boolean;
+}
+
+interface PanelActionResult {
+	reloadRequired: boolean;
+	restartRequired: boolean;
+	reloadedNow: boolean;
+}
+
+const NO_PANEL_ACTION_RESULT: PanelActionResult = {
+	reloadRequired: false,
+	restartRequired: false,
+	reloadedNow: false,
+};
+
 // ---------------------------------------------------------------------------
 // Main interactive panel
 // ---------------------------------------------------------------------------
@@ -372,6 +389,7 @@ export async function showInteractive(
 	ctx: ExtensionCommandContext,
 	pi: ExtensionAPI,
 	controller: ExtensionManagerController,
+	sessionFlags: InteractiveSessionFlags = { reloadRequired: false, restartRequired: false },
 ): Promise<void> {
 	if (!ctx.hasUI) {
 		await showListOnly(ctx);
@@ -406,11 +424,15 @@ export async function showInteractive(
 		let searchActive = false;
 
 		function findNextItem(from: number, dir: number): number {
-			let idx = from + dir;
-			while (idx >= 0 && idx < filteredItems.length) {
+			const total = filteredItems.length;
+			if (total === 0) return from;
+
+			let idx = from;
+			for (let step = 0; step < total; step++) {
+				idx = (idx + dir + total) % total;
 				if (filteredItems[idx]?.type === "item") return idx;
-				idx += dir;
 			}
+
 			return from;
 		}
 
@@ -722,31 +744,51 @@ export async function showInteractive(
 	if (panelResult) {
 		// First apply any pending staged changes
 		if (staged.size > 0) {
-			await applyStaged(staged, allItems, pi);
+			const applied = await applyStaged(staged, allItems, pi);
+			if (applied > 0) {
+				sessionFlags.reloadRequired = true;
+			}
 		}
 
 		const handled = await handlePanelAction(panelResult, ctx, pi, controller);
-		if (handled === "reload") return;
+		sessionFlags.reloadRequired ||= handled.reloadRequired;
+		sessionFlags.restartRequired ||= handled.restartRequired;
+		if (handled.reloadedNow) return;
 
 		// Return to interactive list after any sub-action completes
-		return showInteractive(ctx, pi, controller);
+		return showInteractive(ctx, pi, controller, sessionFlags);
 	}
 
 	// Panel closed normally (ESC) — apply staged changes
 	if (changeCount > 0 || staged.size > 0) {
-		await applyStaged(staged, allItems, pi);
-		const changed = [...staged.entries()].filter(([id]) => {
-			const item = allItems.find((i) => i.id === id);
-			return item?.kind === "local" && item.originalState !== staged.get(id);
-		}).length;
-		if (changed > 0) {
-			const reload = await ctx.ui.confirm("Reload Required", `${changed} extension change(s) saved. Reload pi now?`);
-			if (reload) {
-				await ctx.reload();
-				return;
-			}
-			ctx.ui.notify("Changes saved. Use /reload to apply.", "info");
+		const applied = await applyStaged(staged, allItems, pi);
+		if (applied > 0) {
+			sessionFlags.reloadRequired = true;
+			ctx.ui.notify(`Saved ${applied} extension change(s).`, "info");
 		}
+	}
+
+	if (sessionFlags.restartRequired) {
+		const restartNow = await ctx.ui.confirm(
+			"Restart Required",
+			"Package extension configuration changed. Finish now and restart pi?",
+		);
+		if (restartNow) {
+			ctx.ui.notify("Shutting down pi. Start it again to apply changes.", "info");
+			ctx.shutdown();
+			return;
+		}
+		ctx.ui.notify("Restart pi manually to apply package extension configuration changes.", "warning");
+		return;
+	}
+
+	if (sessionFlags.reloadRequired) {
+		const reload = await ctx.ui.confirm("Reload Required", "Configuration changed. Reload pi now?");
+		if (reload) {
+			await ctx.reload();
+			return;
+		}
+		ctx.ui.notify("Changes saved. Use /reload to apply.", "info");
 	}
 }
 
@@ -754,26 +796,25 @@ export async function showInteractive(
 // Action handlers (called after panel closes with an action)
 // ---------------------------------------------------------------------------
 
-/** Returns "reload" if a reload was triggered, "done" otherwise. */
 async function handlePanelAction(
 	action: PanelAction,
 	ctx: ExtensionCommandContext,
 	pi: ExtensionAPI,
 	controller: ExtensionManagerController,
-): Promise<"reload" | "done"> {
+): Promise<PanelActionResult> {
 	if (action.action === "remote") {
-		await showRemote("", ctx, pi);
-		return "done";
+		const outcome = await showRemote("", ctx, pi, { reloadMode: "defer" });
+		return { ...NO_PANEL_ACTION_RESULT, reloadRequired: outcome.reloadRequired };
 	}
 
 	if (action.action === "update") {
-		const outcome = await updatePackageWithOutcome(action.item.source, ctx, pi);
-		return outcome.reloaded ? "reload" : "done";
+		const outcome = await updatePackageWithOutcome(action.item.source, ctx, pi, "defer");
+		return { ...NO_PANEL_ACTION_RESULT, reloadedNow: outcome.reloaded, reloadRequired: outcome.reloadRequired };
 	}
 
 	if (action.action === "remove" && action.item.kind === "package") {
-		const outcome = await removePackageWithOutcome(action.item.source, ctx, pi);
-		return outcome.reloaded ? "reload" : "done";
+		const outcome = await removePackageWithOutcome(action.item.source, ctx, pi, "defer");
+		return { ...NO_PANEL_ACTION_RESULT, reloadedNow: outcome.reloaded, reloadRequired: outcome.reloadRequired };
 	}
 
 	if (action.action === "remove" && action.item.kind === "local") {
@@ -782,7 +823,7 @@ async function handlePanelAction(
 			"Delete Extension",
 			`Delete ${item.displayName} from disk? This cannot be undone.`,
 		);
-		if (!confirmed) return "done";
+		if (!confirmed) return NO_PANEL_ACTION_RESULT;
 		const removal = await removeLocalExtension(
 			{ activePath: item.activePath, disabledPath: item.disabledPath },
 			ctx.cwd,
@@ -790,46 +831,45 @@ async function handlePanelAction(
 		if (!removal.ok) {
 			logExtensionDelete(pi, item.id, false, removal.error);
 			ctx.ui.notify(`Failed to remove extension: ${removal.error}`, "error");
-			return "done";
+			return NO_PANEL_ACTION_RESULT;
 		}
 		logExtensionDelete(pi, item.id, true);
 		ctx.ui.notify(`Removed ${item.displayName}.`, "info");
-		const reload = await ctx.ui.confirm("Reload Required", "Extension removed. Reload pi now?");
-		if (reload) {
-			await ctx.reload();
-			return "reload";
-		}
-		return "done";
+		return { ...NO_PANEL_ACTION_RESULT, reloadRequired: true };
 	}
 
 	if (action.action === "details") {
 		showPackageDetails(action.item, ctx);
-		return "done";
+		return NO_PANEL_ACTION_RESULT;
 	}
 
 	if (action.action === "configure") {
-		await configurePackageExtensions(action.item.pkg, ctx, pi);
-		return "done";
+		const outcome = await configurePackageExtensions(action.item.pkg, ctx, pi, { restartMode: "defer" });
+		return {
+			...NO_PANEL_ACTION_RESULT,
+			reloadedNow: outcome.reloaded,
+			restartRequired: outcome.restartRequired,
+		};
 	}
 
 	if (action.action === "install") {
-		await showRemote("install", ctx, pi);
-		return "done";
+		const outcome = await showRemote("install", ctx, pi, { reloadMode: "defer" });
+		return { ...NO_PANEL_ACTION_RESULT, reloadRequired: outcome.reloadRequired };
 	}
 
 	if (action.action === "update-all") {
-		await updateAllPackages(ctx, pi);
-		return "done";
+		const outcome = await updateAllPackagesWithOutcome(ctx, pi, "defer");
+		return { ...NO_PANEL_ACTION_RESULT, reloadedNow: outcome.reloaded, reloadRequired: outcome.reloadRequired };
 	}
 
 	if (action.action === "auto-update") {
 		await controller.promptAutoUpdateWizard(ctx);
-		return "done";
+		return NO_PANEL_ACTION_RESULT;
 	}
 
 	if (action.action === "help") {
 		showHelpNotification(ctx);
-		return "done";
+		return NO_PANEL_ACTION_RESULT;
 	}
 
 	if (action.action === "package-actions") {
@@ -841,25 +881,31 @@ async function handlePanelAction(
 			"Details",
 			"Cancel",
 		]);
-		if (!choice || choice === "Cancel") return "done";
+		if (!choice || choice === "Cancel") return NO_PANEL_ACTION_RESULT;
 		if (choice === "Configure extensions") {
-			await configurePackageExtensions(item.pkg, ctx, pi);
+			const outcome = await configurePackageExtensions(item.pkg, ctx, pi, { restartMode: "defer" });
+			return {
+				...NO_PANEL_ACTION_RESULT,
+				reloadedNow: outcome.reloaded,
+				restartRequired: outcome.restartRequired,
+			};
 		} else if (choice === "Update") {
-			const outcome = await updatePackageWithOutcome(item.source, ctx, pi);
-			if (outcome.reloaded) return "reload";
+			const outcome = await updatePackageWithOutcome(item.source, ctx, pi, "defer");
+			return { ...NO_PANEL_ACTION_RESULT, reloadedNow: outcome.reloaded, reloadRequired: outcome.reloadRequired };
 		} else if (choice === "Remove") {
-			const outcome = await removePackageWithOutcome(item.source, ctx, pi);
-			if (outcome.reloaded) return "reload";
+			const outcome = await removePackageWithOutcome(item.source, ctx, pi, "defer");
+			return { ...NO_PANEL_ACTION_RESULT, reloadedNow: outcome.reloaded, reloadRequired: outcome.reloadRequired };
 		} else if (choice === "Details") {
 			showPackageDetails(item, ctx);
 		}
-		return "done";
+		return NO_PANEL_ACTION_RESULT;
 	}
 
-	return "done";
+	return NO_PANEL_ACTION_RESULT;
 }
 
-async function applyStaged(staged: Map<string, State>, allItems: Item[], pi: ExtensionAPI): Promise<void> {
+async function applyStaged(staged: Map<string, State>, allItems: Item[], pi: ExtensionAPI): Promise<number> {
+	let changed = 0;
 	for (const [id, targetState] of staged) {
 		const item = allItems.find((i) => i.id === id);
 		if (!item || item.kind !== "local") continue;
@@ -870,10 +916,13 @@ async function applyStaged(staged: Map<string, State>, allItems: Item[], pi: Ext
 		);
 		if (result.ok) {
 			logExtensionToggle(pi, id, item.originalState, targetState, true);
+			changed += 1;
 		} else {
 			logExtensionToggle(pi, id, item.originalState, targetState, false, result.error);
 		}
 	}
+
+	return changed;
 }
 
 // ---------------------------------------------------------------------------

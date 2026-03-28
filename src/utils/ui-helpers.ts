@@ -5,6 +5,18 @@ import type { ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
 import { UI } from "../constants.js";
 import { notify } from "./notify.js";
 
+export type ReloadMode = "prompt" | "defer";
+
+export interface ReloadOutcome {
+	reloaded: boolean;
+	reloadRequired: boolean;
+}
+
+const NO_RELOAD_OUTCOME: ReloadOutcome = {
+	reloaded: false,
+	reloadRequired: false,
+};
+
 /**
  * Confirm and trigger reload
  * Returns true if reload was triggered
@@ -23,6 +35,26 @@ export async function confirmReload(ctx: ExtensionCommandContext, reason: string
 	}
 
 	return false;
+}
+
+export async function handleReloadRequirement(
+	ctx: ExtensionCommandContext,
+	reason: string,
+	mode: ReloadMode = "prompt",
+): Promise<ReloadOutcome> {
+	if (mode === "defer") {
+		if (!ctx.hasUI) {
+			notify(ctx, `Reload pi to apply changes. (${reason})`);
+		}
+		return { reloaded: false, reloadRequired: true };
+	}
+
+	const reloaded = await confirmReload(ctx, reason);
+	return reloaded ? { reloaded: true, reloadRequired: false } : { reloaded: false, reloadRequired: true };
+}
+
+export function noReloadOutcome(): ReloadOutcome {
+	return { ...NO_RELOAD_OUTCOME };
 }
 
 /**

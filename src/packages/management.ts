@@ -12,16 +12,25 @@ import { notify, error as notifyError, success } from "../utils/notify.js";
 import { normalizePackageIdentity } from "../utils/package-source.js";
 import { clearUpdatesAvailable } from "../utils/settings.js";
 import { updateExtmgrStatus } from "../utils/status.js";
-import { confirmAction, confirmReload, formatListOutput, showProgress } from "../utils/ui-helpers.js";
+import {
+	confirmAction,
+	formatListOutput,
+	handleReloadRequirement,
+	noReloadOutcome,
+	type ReloadMode,
+	showProgress,
+} from "../utils/ui-helpers.js";
 import { getPackageCatalog } from "./catalog.js";
 import { clearSearchCache, getInstalledPackages, getInstalledPackagesAllScopes } from "./discovery.js";
 
 export interface PackageMutationOutcome {
 	reloaded: boolean;
+	reloadRequired: boolean;
 }
 
 const NO_PACKAGE_MUTATION_OUTCOME: PackageMutationOutcome = {
 	reloaded: false,
+	reloadRequired: false,
 };
 
 const BULK_UPDATE_LABEL = "all packages";
@@ -38,6 +47,7 @@ async function updatePackageInternal(
 	source: string,
 	ctx: ExtensionCommandContext,
 	pi: ExtensionAPI,
+	reloadMode: ReloadMode = "prompt",
 ): Promise<PackageMutationOutcome> {
 	showProgress(ctx, "Updating", source);
 
@@ -52,7 +62,7 @@ async function updatePackageInternal(
 			logPackageUpdate(pi, source, source, undefined, true);
 			clearUpdatesAvailable(pi, ctx, [updateIdentity]);
 			void updateExtmgrStatus(ctx, pi);
-			return NO_PACKAGE_MUTATION_OUTCOME;
+			return noReloadOutcome();
 		}
 
 		await runTaskWithLoader(
@@ -75,21 +85,25 @@ async function updatePackageInternal(
 		logPackageUpdate(pi, source, source, undefined, false, errorMsg);
 		notifyError(ctx, errorMsg);
 		void updateExtmgrStatus(ctx, pi);
-		return NO_PACKAGE_MUTATION_OUTCOME;
+		return noReloadOutcome();
 	}
 
 	logPackageUpdate(pi, source, source, undefined, true);
 	success(ctx, `Updated ${source}`);
 	clearUpdatesAvailable(pi, ctx, [updateIdentity]);
 
-	const reloaded = await confirmReload(ctx, "Package updated.");
-	if (!reloaded) {
+	const reloadOutcome = await handleReloadRequirement(ctx, "Package updated.", reloadMode);
+	if (!reloadOutcome.reloaded) {
 		void updateExtmgrStatus(ctx, pi);
 	}
-	return packageMutationOutcome({ reloaded });
+	return packageMutationOutcome(reloadOutcome);
 }
 
-async function updatePackagesInternal(ctx: ExtensionCommandContext, pi: ExtensionAPI): Promise<PackageMutationOutcome> {
+async function updatePackagesInternal(
+	ctx: ExtensionCommandContext,
+	pi: ExtensionAPI,
+	reloadMode: ReloadMode = "prompt",
+): Promise<PackageMutationOutcome> {
 	showProgress(ctx, "Updating", "all packages");
 
 	try {
@@ -99,7 +113,7 @@ async function updatePackagesInternal(ctx: ExtensionCommandContext, pi: Extensio
 			logPackageUpdate(pi, BULK_UPDATE_LABEL, BULK_UPDATE_LABEL, undefined, true);
 			clearUpdatesAvailable(pi, ctx);
 			void updateExtmgrStatus(ctx, pi);
-			return NO_PACKAGE_MUTATION_OUTCOME;
+			return noReloadOutcome();
 		}
 
 		await runTaskWithLoader(
@@ -122,18 +136,18 @@ async function updatePackagesInternal(ctx: ExtensionCommandContext, pi: Extensio
 		logPackageUpdate(pi, BULK_UPDATE_LABEL, BULK_UPDATE_LABEL, undefined, false, errorMsg);
 		notifyError(ctx, errorMsg);
 		void updateExtmgrStatus(ctx, pi);
-		return NO_PACKAGE_MUTATION_OUTCOME;
+		return noReloadOutcome();
 	}
 
 	logPackageUpdate(pi, BULK_UPDATE_LABEL, BULK_UPDATE_LABEL, undefined, true);
 	success(ctx, "Packages updated");
 	clearUpdatesAvailable(pi, ctx);
 
-	const reloaded = await confirmReload(ctx, "Packages updated.");
-	if (!reloaded) {
+	const reloadOutcome = await handleReloadRequirement(ctx, "Packages updated.", reloadMode);
+	if (!reloadOutcome.reloaded) {
 		void updateExtmgrStatus(ctx, pi);
 	}
-	return packageMutationOutcome({ reloaded });
+	return packageMutationOutcome(reloadOutcome);
 }
 
 export async function updatePackage(source: string, ctx: ExtensionCommandContext, pi: ExtensionAPI): Promise<void> {
@@ -144,8 +158,9 @@ export async function updatePackageWithOutcome(
 	source: string,
 	ctx: ExtensionCommandContext,
 	pi: ExtensionAPI,
+	reloadMode: ReloadMode = "prompt",
 ): Promise<PackageMutationOutcome> {
-	return updatePackageInternal(source, ctx, pi);
+	return updatePackageInternal(source, ctx, pi, reloadMode);
 }
 
 export async function updatePackages(ctx: ExtensionCommandContext, pi: ExtensionAPI): Promise<void> {
@@ -155,8 +170,9 @@ export async function updatePackages(ctx: ExtensionCommandContext, pi: Extension
 export async function updatePackagesWithOutcome(
 	ctx: ExtensionCommandContext,
 	pi: ExtensionAPI,
+	reloadMode: ReloadMode = "prompt",
 ): Promise<PackageMutationOutcome> {
-	return updatePackagesInternal(ctx, pi);
+	return updatePackagesInternal(ctx, pi, reloadMode);
 }
 
 function packageIdentity(source: string): string {
@@ -302,6 +318,7 @@ async function removePackageInternal(
 	source: string,
 	ctx: ExtensionCommandContext,
 	pi: ExtensionAPI,
+	reloadMode: ReloadMode = "prompt",
 ): Promise<PackageMutationOutcome> {
 	const installed = await getInstalledPackagesAllScopesForRemoval(ctx);
 	const identity = packageIdentity(source);
@@ -313,18 +330,18 @@ async function removePackageInternal(
 
 	if (scopeChoice === "cancel") {
 		notify(ctx, "Removal cancelled.", "info");
-		return NO_PACKAGE_MUTATION_OUTCOME;
+		return noReloadOutcome();
 	}
 
 	if (matching.length === 0) {
 		notify(ctx, `${source} is not installed.`, "info");
-		return NO_PACKAGE_MUTATION_OUTCOME;
+		return noReloadOutcome();
 	}
 
 	const targets = buildRemovalTargets(matching, ctx.hasUI, scopeChoice);
 	if (targets.length === 0) {
 		notify(ctx, "Nothing to remove.", "info");
-		return NO_PACKAGE_MUTATION_OUTCOME;
+		return noReloadOutcome();
 	}
 
 	const confirmed = await confirmAction(
@@ -335,7 +352,7 @@ async function removePackageInternal(
 	);
 	if (!confirmed) {
 		notify(ctx, "Removal cancelled.", "info");
-		return NO_PACKAGE_MUTATION_OUTCOME;
+		return noReloadOutcome();
 	}
 
 	const results = await executeRemovalTargets(targets, ctx, pi);
@@ -361,15 +378,15 @@ async function removePackageInternal(
 
 	if (successfulRemovalCount === 0) {
 		void updateExtmgrStatus(ctx, pi);
-		return NO_PACKAGE_MUTATION_OUTCOME;
+		return noReloadOutcome();
 	}
 
-	const reloaded = await confirmReload(ctx, "Removal complete.");
-	if (!reloaded) {
+	const reloadOutcome = await handleReloadRequirement(ctx, "Removal complete.", reloadMode);
+	if (!reloadOutcome.reloaded) {
 		void updateExtmgrStatus(ctx, pi);
 	}
 
-	return packageMutationOutcome({ reloaded });
+	return packageMutationOutcome(reloadOutcome);
 }
 
 export async function removePackage(source: string, ctx: ExtensionCommandContext, pi: ExtensionAPI): Promise<void> {
@@ -380,8 +397,9 @@ export async function removePackageWithOutcome(
 	source: string,
 	ctx: ExtensionCommandContext,
 	pi: ExtensionAPI,
+	reloadMode: ReloadMode = "prompt",
 ): Promise<PackageMutationOutcome> {
-	return removePackageInternal(source, ctx, pi);
+	return removePackageInternal(source, ctx, pi, reloadMode);
 }
 
 export async function promptRemove(ctx: ExtensionCommandContext, pi: ExtensionAPI): Promise<void> {
