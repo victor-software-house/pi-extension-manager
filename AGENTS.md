@@ -10,16 +10,17 @@ Source in `src/`, no build step — jiti loads TypeScript directly at runtime.
 
 ```
 src/
-  index.ts            # Extension entry point: registers /extensions, wires lifecycle events
-  controller.ts       # Central runtime object: owns auto-update config, timer, status, catalog
-  constants.ts        # Timeouts, cache limits, data dir path
-  types/index.ts      # Shared type definitions
-  commands/            # Subcommand handlers (install, show, history, verify, auto-update, …)
-    registry.ts        # Command routing, autocomplete, help
-  extensions/          # Local extension discovery
-  packages/            # npm package operations (install, remove, update, catalog, search)
-  ui/                  # TUI panels (manager, remote browse, async-task loader, theme)
-  utils/               # Pure helpers (cache, format, fs, network, retry, settings, history, …)
+├── index.ts            # Extension entry point: registers /extensions, wires lifecycle events
+├── controller.ts       # Central runtime object: owns auto-update config, timer, status, catalog
+├── constants.ts        # Timeouts, cache limits, data dir path
+├── types/
+│   └── index.ts        # Shared type definitions
+├── commands/           # Subcommand handlers (install, show, history, verify, auto-update, …)
+│   └── registry.ts     # Command routing, autocomplete, help
+├── extensions/         # Local extension discovery
+├── packages/           # npm package operations (install, remove, update, catalog, search)
+├── ui/                 # TUI panels (manager, remote browse, async-task loader, theme)
+└── utils/              # Pure helpers (cache, format, fs, network, retry, settings, history, …)
 ```
 
 Key files for understanding the architecture:
