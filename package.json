@@ -1,6 +1,6 @@
 {
 	"name": "pi-extension-manager",
-	"version": "0.8.0",
+	"version": "0.8.1",
 	"description": "Interactive extension and package manager for Pi",
 	"license": "MIT",
 	"author": "Victor Software House",

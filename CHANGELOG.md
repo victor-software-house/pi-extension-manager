@@ -1,3 +1,10 @@
+## [0.8.1](https://github.com/victor-software-house/pi-extension-manager/compare/v0.8.0...v0.8.1) (2026-03-31)
+
+
+### Bug Fixes
+
+* use relative path for README screenshot ([ffa4e19](https://github.com/victor-software-house/pi-extension-manager/commit/ffa4e192bd1d2017197603bb9c94582aa753cd6c))
+
 # [0.8.0](https://github.com/victor-software-house/pi-extension-manager/compare/v0.7.1...v0.8.0) (2026-03-31)
 
 
