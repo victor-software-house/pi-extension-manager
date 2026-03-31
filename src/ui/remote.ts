@@ -302,7 +302,8 @@ function buildNavItems(
 async function selectBrowseAction(
 	ctx: ExtensionCommandContext,
 	titleText: string,
-	packages: NpmPackage[],
+	pagePackages: NpmPackage[],
+	allPackages: NpmPackage[],
 	offset: number,
 	totalResults: number,
 	showPrevious: boolean,
@@ -310,17 +311,21 @@ async function selectBrowseAction(
 ): Promise<BrowseAction | undefined> {
 	if (!ctx.hasUI) return undefined;
 
-	const navItems = buildNavItems(offset, packages.length, totalResults, showPrevious, showLoadMore);
+	const navItems = buildNavItems(offset, pagePackages.length, totalResults, showPrevious, showLoadMore);
+
+	function toSelectItems(pkgs: NpmPackage[]): SelectItem[] {
+		return pkgs.map((p) => ({
+			value: `pkg:${p.name}`,
+			label: `${p.name}${p.version ? ` @${p.version}` : ""}`,
+			description: p.description || "No description",
+		}));
+	}
 
 	function buildItems(filter: string): SelectItem[] {
-		const pkgItems = filter
-			? filterPackageItems(packages, filter)
-			: packages.map((p) => ({
-					value: `pkg:${p.name}`,
-					label: `${p.name}${p.version ? ` @${p.version}` : ""}`,
-					description: p.description || "No description",
-				}));
-		return [...pkgItems, ...navItems];
+		// When filtering, search across ALL packages; otherwise show current page
+		const pkgItems = filter ? filterPackageItems(allPackages, filter) : toSelectItems(pagePackages);
+		// Hide pagination nav when filter is active (results span all pages)
+		return filter ? pkgItems : [...pkgItems, ...navItems];
 	}
 
 	return ctx.ui.custom<BrowseAction>((tui, theme, _keybindings, done) => {
@@ -537,7 +542,16 @@ export async function browseRemotePackages(
 			? `Search Results (${offset + 1}-${offset + packages.length} of ${totalResults})`
 			: `Search: ${truncate(query, 40)} (${totalResults})`;
 
-	const result = await selectBrowseAction(ctx, titleText, packages, offset, totalResults, showPrevious, showLoadMore);
+	const result = await selectBrowseAction(
+		ctx,
+		titleText,
+		packages,
+		allPackages,
+		offset,
+		totalResults,
+		showPrevious,
+		showLoadMore,
+	);
 
 	if (!result || result.type === "cancel") {
 		return noReloadOutcome();
