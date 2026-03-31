@@ -1,3 +1,15 @@
+# [0.7.0](https://github.com/victor-software-house/pi-extension-manager/compare/v0.6.1...v0.7.0) (2026-03-31)
+
+
+### Bug Fixes
+
+* stop pre-truncating descriptions in remote browse ([7d196fe](https://github.com/victor-software-house/pi-extension-manager/commit/7d196fee36790c3dc4107da618658089c1058393))
+
+
+### Features
+
+* add client-side search filter to remote browse panel ([757847d](https://github.com/victor-software-house/pi-extension-manager/commit/757847d1c022cab367222cd1aa9b8192eb5aeda9))
+
 ## [0.6.1](https://github.com/victor-software-house/pi-extension-manager/compare/v0.6.0...v0.6.1) (2026-03-31)
 
 
