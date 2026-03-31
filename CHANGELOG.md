@@ -1,3 +1,10 @@
+## [0.6.1](https://github.com/victor-software-house/pi-extension-manager/compare/v0.6.0...v0.6.1) (2026-03-31)
+
+
+### Bug Fixes
+
+* truncate shortcut hint line to terminal width ([6b20903](https://github.com/victor-software-house/pi-extension-manager/commit/6b20903aa2554e32ef10337711e422563ecbcd6a))
+
 # [0.6.0](https://github.com/victor-software-house/pi-extension-manager/compare/v0.5.3...v0.6.0) (2026-03-28)
 
 
