@@ -2,6 +2,7 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-cod
 import type { AutocompleteItem } from "@mariozechner/pi-tui";
 import type { ExtensionManagerController } from "../controller.js";
 import {
+	forceUpdateAllPackages,
 	promptRemove,
 	removePackage,
 	showInstalledPackagesList,
@@ -24,6 +25,19 @@ import { verifyRuntime } from "./verify.js";
 
 const REMOVE_USAGE = "Usage: /extensions remove <npm:package|git:url|path>";
 
+const FORCE_UPDATE_FLAGS = new Set(["--all", "--force"]);
+
+function dispatchUpdate(tokens: string[], ctx: ExtensionCommandContext, pi: ExtensionAPI): Promise<void> {
+	const hasForce = tokens.some((t) => FORCE_UPDATE_FLAGS.has(t));
+	const rest = tokens.filter((t) => !FORCE_UPDATE_FLAGS.has(t));
+
+	if (rest.length > 0) {
+		return updatePackage(rest.join(" "), ctx, pi);
+	}
+
+	return hasForce ? forceUpdateAllPackages(ctx, pi) : updatePackages(ctx, pi);
+}
+
 function requireInteractiveCommand(ctx: ExtensionCommandContext, feature: string): void {
 	notify(ctx, `${feature} requires interactive mode.`, "warning");
 }
@@ -39,7 +53,7 @@ function showNonInteractiveHelp(ctx: ExtensionCommandContext): void {
 		"  /extensions installed    - List installed packages",
 		`  ${INSTALL_USAGE}`,
 		"  /extensions remove <s>   - Remove a package",
-		"  /extensions update [s]   - Update one or all packages",
+		"  /extensions update [s]   - Update outdated packages (--all to force)",
 		"  /extensions remote       - Browse community packages",
 		"  /extensions history      - Show change history",
 		"  /extensions auto-update  - Configure auto-update schedule",
@@ -127,11 +141,9 @@ const COMMAND_DEFINITIONS: Record<CommandId, CommandDefinition> = {
 	},
 	update: {
 		id: "update",
-		description: "Update one package or all packages",
-		runInteractive: (tokens, ctx, pi) =>
-			tokens.length > 0 ? updatePackage(tokens.join(" "), ctx, pi) : updatePackages(ctx, pi),
-		runNonInteractive: (tokens, ctx, pi) =>
-			tokens.length > 0 ? updatePackage(tokens.join(" "), ctx, pi) : updatePackages(ctx, pi),
+		description: "Update outdated packages (--all to force-update everything)",
+		runInteractive: (tokens, ctx, pi) => dispatchUpdate(tokens, ctx, pi),
+		runNonInteractive: (tokens, ctx, pi) => dispatchUpdate(tokens, ctx, pi),
 	},
 	history: {
 		id: "history",

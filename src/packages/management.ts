@@ -20,7 +20,7 @@ import {
 	type ReloadMode,
 	showProgress,
 } from "../utils/ui-helpers.js";
-import { getPackageCatalog } from "./catalog.js";
+import { type AvailablePackageUpdate, getPackageCatalog } from "./catalog.js";
 import { clearSearchCache, getInstalledPackages, getInstalledPackagesAllScopes } from "./discovery.js";
 
 export interface PackageMutationOutcome {
@@ -99,33 +99,91 @@ async function updatePackageInternal(
 	return packageMutationOutcome(reloadOutcome);
 }
 
-async function updatePackagesInternal(
+async function updateOutdatedPackagesInternal(
 	ctx: ExtensionCommandContext,
 	pi: ExtensionAPI,
 	reloadMode: ReloadMode = "prompt",
 ): Promise<PackageMutationOutcome> {
-	showProgress(ctx, "Updating", "all packages");
+	showProgress(ctx, "Checking for updates", "");
+
+	let updates: AvailablePackageUpdate[];
+	try {
+		updates = await getPackageCatalog(ctx.cwd).checkForAvailableUpdates();
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		notifyError(ctx, `Update check failed: ${message}`);
+		void updateExtmgrStatus(ctx, pi);
+		return noReloadOutcome();
+	}
+
+	if (updates.length === 0) {
+		notify(ctx, "All packages are already up to date.", "info");
+		logPackageUpdate(pi, BULK_UPDATE_LABEL, BULK_UPDATE_LABEL, undefined, true);
+		clearUpdatesAvailable(pi, ctx);
+		void updateExtmgrStatus(ctx, pi);
+		return noReloadOutcome();
+	}
+
+	const catalog = getPackageCatalog(ctx.cwd);
+	const sources = updates.map((u) => u.source);
+	const label = sources.length === 1 ? (sources[0] ?? "unknown") : `${sources.length} packages`;
 
 	try {
-		const updates = await getPackageCatalog(ctx.cwd).checkForAvailableUpdates();
-		if (updates.length === 0) {
-			notify(ctx, "All packages are already up to date.", "info");
-			logPackageUpdate(pi, BULK_UPDATE_LABEL, BULK_UPDATE_LABEL, undefined, true);
-			clearUpdatesAvailable(pi, ctx);
-			void updateExtmgrStatus(ctx, pi);
-			return noReloadOutcome();
-		}
-
 		await runTaskWithLoader(
 			ctx,
 			{
 				title: "Update Packages",
-				message: "Updating all packages...",
+				message: `Updating ${label}...`,
+				cancellable: false,
+			},
+			async ({ setMessage }) => {
+				for (const source of sources) {
+					setMessage(`Updating ${source}...`);
+					await catalog.update(source, (event) => {
+						setMessage(getProgressMessage(event, `Updating ${source}...`));
+					});
+				}
+				return undefined;
+			},
+		);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		const errorMsg = `Update failed: ${message}`;
+		logPackageUpdate(pi, label, label, undefined, false, errorMsg);
+		notifyError(ctx, errorMsg);
+		void updateExtmgrStatus(ctx, pi);
+		return noReloadOutcome();
+	}
+
+	logPackageUpdate(pi, label, label, undefined, true);
+	success(ctx, `Updated ${label}`);
+	clearUpdatesAvailable(pi, ctx);
+
+	const reloadOutcome = await handleReloadRequirement(ctx, "Packages updated.", reloadMode);
+	if (!reloadOutcome.reloaded) {
+		void updateExtmgrStatus(ctx, pi);
+	}
+	return packageMutationOutcome(reloadOutcome);
+}
+
+async function forceUpdateAllPackagesInternal(
+	ctx: ExtensionCommandContext,
+	pi: ExtensionAPI,
+	reloadMode: ReloadMode = "prompt",
+): Promise<PackageMutationOutcome> {
+	showProgress(ctx, "Force-updating", "all packages");
+
+	try {
+		await runTaskWithLoader(
+			ctx,
+			{
+				title: "Update All Packages",
+				message: "Force-updating all packages...",
 				cancellable: false,
 			},
 			async ({ setMessage }) => {
 				await getPackageCatalog(ctx.cwd).update(undefined, (event) => {
-					setMessage(getProgressMessage(event, "Updating all packages..."));
+					setMessage(getProgressMessage(event, "Force-updating all packages..."));
 				});
 				return undefined;
 			},
@@ -140,7 +198,7 @@ async function updatePackagesInternal(
 	}
 
 	logPackageUpdate(pi, BULK_UPDATE_LABEL, BULK_UPDATE_LABEL, undefined, true);
-	success(ctx, "Packages updated");
+	success(ctx, "All packages force-updated");
 	clearUpdatesAvailable(pi, ctx);
 
 	const reloadOutcome = await handleReloadRequirement(ctx, "Packages updated.", reloadMode);
@@ -164,7 +222,7 @@ export async function updatePackageWithOutcome(
 }
 
 export async function updatePackages(ctx: ExtensionCommandContext, pi: ExtensionAPI): Promise<void> {
-	await updatePackagesInternal(ctx, pi);
+	await updateOutdatedPackagesInternal(ctx, pi);
 }
 
 export async function updatePackagesWithOutcome(
@@ -172,7 +230,19 @@ export async function updatePackagesWithOutcome(
 	pi: ExtensionAPI,
 	reloadMode: ReloadMode = "prompt",
 ): Promise<PackageMutationOutcome> {
-	return updatePackagesInternal(ctx, pi, reloadMode);
+	return updateOutdatedPackagesInternal(ctx, pi, reloadMode);
+}
+
+export async function forceUpdateAllPackages(ctx: ExtensionCommandContext, pi: ExtensionAPI): Promise<void> {
+	await forceUpdateAllPackagesInternal(ctx, pi);
+}
+
+export async function forceUpdateAllPackagesWithOutcome(
+	ctx: ExtensionCommandContext,
+	pi: ExtensionAPI,
+	reloadMode: ReloadMode = "prompt",
+): Promise<PackageMutationOutcome> {
+	return forceUpdateAllPackagesInternal(ctx, pi, reloadMode);
 }
 
 function packageIdentity(source: string): string {

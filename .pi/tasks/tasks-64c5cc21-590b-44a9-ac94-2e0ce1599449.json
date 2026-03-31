@@ -1,0 +1,17 @@
+{
+  "nextId": 2,
+  "tasks": [
+    {
+      "id": "1",
+      "subject": "Make `/extensions update` selective — only update outdated packages",
+      "description": "Change `updatePackagesInternal` to iterate only over packages flagged by `checkForAvailableUpdates()` and call `update(source)` for each, instead of `update(undefined)` which touches everything.\n\nAdd `--all` / `--force` flag that triggers the old behavior (force-update all regardless).\n\nUpdate registry command parsing, help text, and the `BULK_UPDATE_LABEL` logging accordingly.",
+      "status": "in_progress",
+      "activeForm": "Implementing selective package updates",
+      "metadata": {},
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1774932196615,
+      "updatedAt": 1774932199413
+    }
+  ]
+}

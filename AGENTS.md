@@ -16,7 +16,8 @@ Source code in `src/`. No build step — jiti loads TypeScript directly.
 - `/extensions installed` — list installed packages
 - `/extensions install <source>` — install a package
 - `/extensions remove <source>` — remove a package
-- `/extensions update [source]` — update one or all packages
+- `/extensions update [source]` — update outdated packages (or a specific one)
+- `/extensions update --all` — force-update all packages regardless of status
 - `/extensions remote` — browse/search npm packages (interactive only)
 - `/extensions auto-update <duration>` — configure auto-update schedule
 - `/extensions history [filters]` — show change history
