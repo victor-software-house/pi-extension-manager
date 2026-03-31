@@ -3,7 +3,16 @@
  */
 import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
 import { DynamicBorder } from "@mariozechner/pi-coding-agent";
-import { Container, type SelectItem, SelectList, Text, truncateToWidth } from "@mariozechner/pi-tui";
+import {
+	Container,
+	getKeybindings,
+	Input,
+	matchesKey,
+	type SelectItem,
+	SelectList,
+	Text,
+	truncateToWidth,
+} from "@mariozechner/pi-tui";
 import { CACHE_LIMITS, PAGE_SIZE, TIMEOUTS } from "../constants.js";
 import { getSearchCache, isCacheValid, searchNpmPackages, setSearchCache } from "../packages/discovery.js";
 import { installPackage, installPackageLocally } from "../packages/install.js";
@@ -266,6 +275,39 @@ async function showRemoteMenu(
 	}
 }
 
+function filterPackageItems(packages: NpmPackage[], filter: string): SelectItem[] {
+	const lq = filter.toLowerCase();
+	return packages
+		.filter((p) => p.name.toLowerCase().includes(lq) || (p.description?.toLowerCase().includes(lq) ?? false))
+		.map((p) => ({
+			value: `pkg:${p.name}`,
+			label: `${p.name}${p.version ? ` @${p.version}` : ""}`,
+			description: truncateToWidth(p.description || "No description", 35),
+		}));
+}
+
+function buildNavItems(
+	offset: number,
+	packagesLength: number,
+	totalResults: number,
+	showPrevious: boolean,
+	showLoadMore: boolean,
+): SelectItem[] {
+	const nav: SelectItem[] = [];
+	if (showPrevious) {
+		nav.push({ value: "nav:prev", label: "◀  Previous page" });
+	}
+	if (showLoadMore) {
+		nav.push({
+			value: "nav:next",
+			label: `▶  Next page (${offset + 1}-${offset + packagesLength} of ${totalResults})`,
+		});
+	}
+	nav.push({ value: "nav:refresh", label: "Refresh search" });
+	nav.push({ value: "nav:menu", label: "← Back to menu" });
+	return nav;
+}
+
 async function selectBrowseAction(
 	ctx: ExtensionCommandContext,
 	titleText: string,
@@ -277,46 +319,40 @@ async function selectBrowseAction(
 ): Promise<BrowseAction | undefined> {
 	if (!ctx.hasUI) return undefined;
 
-	const items: SelectItem[] = packages.map((p) => ({
-		value: `pkg:${p.name}`,
-		label: `${p.name}${p.version ? ` @${p.version}` : ""}`,
-		description: truncateToWidth(p.description || "No description", 35),
-	}));
+	const navItems = buildNavItems(offset, packages.length, totalResults, showPrevious, showLoadMore);
 
-	if (showPrevious) {
-		items.push({ value: "nav:prev", label: "◀  Previous page" });
+	function buildItems(filter: string): SelectItem[] {
+		const pkgItems = filter
+			? filterPackageItems(packages, filter)
+			: packages.map((p) => ({
+					value: `pkg:${p.name}`,
+					label: `${p.name}${p.version ? ` @${p.version}` : ""}`,
+					description: truncateToWidth(p.description || "No description", 35),
+				}));
+		return [...pkgItems, ...navItems];
 	}
-	if (showLoadMore) {
-		items.push({
-			value: "nav:next",
-			label: `▶  Next page (${offset + 1}-${offset + packages.length} of ${totalResults})`,
-		});
-	}
-	items.push({ value: "nav:refresh", label: "Refresh search" });
-	items.push({ value: "nav:menu", label: "← Back to menu" });
 
-	if (!ctx.hasUI) return undefined;
 	return ctx.ui.custom<BrowseAction>((tui, theme, _keybindings, done) => {
+		const kb = getKeybindings();
 		const container = new Container();
+		const topBorder = new DynamicBorder((s: string) => theme.fg("accent", s));
 		const title = new Text("", 1, 0);
+		const searchInput = new Input();
 		const footer = new Text("", 1, 0);
-		const syncThemedContent = (): void => {
-			title.setText(theme.fg("accent", theme.bold(titleText)));
-			footer.setText(theme.fg("dim", "↑↓ wraps • enter select • esc cancel"));
+		const bottomBorder = new DynamicBorder((s: string) => theme.fg("accent", s));
+
+		let searchActive = false;
+		let currentFilter = "";
+
+		const themedSelectList = {
+			selectedPrefix: (t: string) => theme.fg("accent", t),
+			selectedText: (t: string) => theme.fg("accent", t),
+			description: (t: string) => theme.fg("muted", t),
+			scrollInfo: (t: string) => theme.fg("dim", t),
+			noMatch: (t: string) => theme.fg("warning", t),
 		};
 
-		container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
-		container.addChild(title);
-
-		const selectList = new SelectList(items, Math.min(items.length, 12), {
-			selectedPrefix: (t) => theme.fg("accent", t),
-			selectedText: (t) => theme.fg("accent", t),
-			description: (t) => theme.fg("muted", t),
-			scrollInfo: (t) => theme.fg("dim", t),
-			noMatch: (t) => theme.fg("warning", t),
-		});
-
-		selectList.onSelect = (item) => {
+		function handleSelectItem(item: SelectItem): void {
 			if (item.value === "nav:prev") {
 				done({ type: "prev" });
 			} else if (item.value === "nav:next") {
@@ -330,22 +366,109 @@ async function selectBrowseAction(
 			} else {
 				done({ type: "cancel" });
 			}
-		};
+		}
 
+		let items = buildItems("");
+		let selectList = new SelectList(items, Math.min(items.length, 12), themedSelectList);
+		selectList.onSelect = handleSelectItem;
 		selectList.onCancel = () => done({ type: "cancel" });
 
+		function rebuildList(): void {
+			container.removeChild(selectList);
+			items = buildItems(currentFilter);
+			selectList = new SelectList(items, Math.min(items.length, 12), themedSelectList);
+			selectList.onSelect = handleSelectItem;
+			selectList.onCancel = () => done({ type: "cancel" });
+			// Re-insert before footer
+			container.removeChild(footer);
+			container.removeChild(bottomBorder);
+			container.addChild(selectList);
+			container.addChild(footer);
+			container.addChild(bottomBorder);
+		}
+
+		const syncThemedContent = (): void => {
+			const titleSuffix = currentFilter ? theme.fg("dim", ` [filter: ${currentFilter}]`) : "";
+			title.setText(theme.fg("accent", theme.bold(titleText)) + titleSuffix);
+			const hint = searchActive
+				? "type to filter • esc clear • enter select"
+				: "↑↓ wraps • / filter • enter select • esc cancel";
+			footer.setText(theme.fg("dim", hint));
+		};
+
+		container.addChild(topBorder);
+		container.addChild(title);
 		syncThemedContent();
 		container.addChild(selectList);
 		container.addChild(footer);
-		container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
+		container.addChild(bottomBorder);
 
 		return {
-			render: (w: number) => container.render(w),
+			render: (w: number) => {
+				const lines = container.render(w);
+				if (searchActive) {
+					// Insert search input lines after the title (line index 1 = border, 2 = title)
+					const inputLines = searchInput.render(w);
+					lines.splice(2, 0, ...inputLines);
+				}
+				return lines;
+			},
 			invalidate: () => {
 				container.invalidate();
 				syncThemedContent();
 			},
 			handleInput: (data: string) => {
+				// Navigation always works
+				if (kb.matches(data, "tui.select.up") || kb.matches(data, "tui.select.down")) {
+					selectList.handleInput(data);
+					tui.requestRender();
+					return;
+				}
+
+				// Enter always confirms selection
+				if (kb.matches(data, "tui.select.confirm")) {
+					selectList.handleInput(data);
+					tui.requestRender();
+					return;
+				}
+
+				// Escape: clear search first, then cancel
+				if (kb.matches(data, "tui.select.cancel") || matchesKey(data, "ctrl+c")) {
+					if (searchActive || currentFilter) {
+						searchActive = false;
+						currentFilter = "";
+						searchInput.setValue("");
+						rebuildList();
+						syncThemedContent();
+						tui.requestRender();
+						return;
+					}
+					done({ type: "cancel" });
+					return;
+				}
+
+				// Search mode: keystrokes go to input
+				if (searchActive) {
+					searchInput.handleInput(data);
+					const newFilter = searchInput.getValue().trim();
+					if (newFilter !== currentFilter) {
+						currentFilter = newFilter;
+						rebuildList();
+						syncThemedContent();
+					}
+					tui.requestRender();
+					return;
+				}
+
+				// Activate search
+				if (data === "/" || data === "f" || data === "F") {
+					searchActive = true;
+					syncThemedContent();
+					tui.requestRender();
+					return;
+				}
+
+				// Everything else to SelectList (page up/down etc.)
 				selectList.handleInput(data);
 				tui.requestRender();
 			},

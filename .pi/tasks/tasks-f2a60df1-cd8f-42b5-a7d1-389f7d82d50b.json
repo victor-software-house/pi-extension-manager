@@ -1,0 +1,17 @@
+{
+  "nextId": 2,
+  "tasks": [
+    {
+      "id": "1",
+      "subject": "Add client-side search filter to remote browse panel",
+      "description": "Add type-ahead search filtering to the remote package browse UI (selectBrowseAction in src/ui/remote.ts). Mirror the pattern from the main /extensions panel: press `/` or `f` to activate search, type to filter, Esc to clear. Filter packages by name/description substring match, keep nav items always visible. Rebuild SelectList with filtered items + nav items on each keystroke.",
+      "status": "in_progress",
+      "activeForm": "Adding search filter to remote browse panel",
+      "metadata": {},
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1774925190666,
+      "updatedAt": 1774925193957
+    }
+  ]
+}
