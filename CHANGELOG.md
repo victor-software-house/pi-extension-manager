@@ -1,3 +1,10 @@
+## [0.8.2](https://github.com/victor-software-house/pi-extension-manager/compare/v0.8.1...v0.8.2) (2026-03-31)
+
+
+### Bug Fixes
+
+* add pi.image to package.json for pi.dev card preview ([30a5e12](https://github.com/victor-software-house/pi-extension-manager/commit/30a5e12ce1302bcb43ac4695e72bcfb6f90816d2))
+
 ## [0.8.1](https://github.com/victor-software-house/pi-extension-manager/compare/v0.8.0...v0.8.1) (2026-03-31)
 
 
