@@ -1,3 +1,10 @@
+## [0.7.1](https://github.com/victor-software-house/pi-extension-manager/compare/v0.7.0...v0.7.1) (2026-03-31)
+
+
+### Bug Fixes
+
+* filter remote packages across all results, not just current page ([eb7d62d](https://github.com/victor-software-house/pi-extension-manager/commit/eb7d62d26a655b0d4982b182fefb192c132dc0ec))
+
 # [0.7.0](https://github.com/victor-software-house/pi-extension-manager/compare/v0.6.1...v0.7.0) (2026-03-31)
 
 
