@@ -22,7 +22,8 @@
 	"pi": {
 		"extensions": [
 			"./src/index.ts"
-		]
+		],
+		"image": "https://raw.githubusercontent.com/victor-software-house/pi-extension-manager/main/assets/package-preview.png"
 	},
 	"type": "module",
 	"main": "./src/index.ts",
