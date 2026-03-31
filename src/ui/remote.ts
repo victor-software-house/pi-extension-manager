@@ -3,16 +3,7 @@
  */
 import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
 import { DynamicBorder } from "@mariozechner/pi-coding-agent";
-import {
-	Container,
-	getKeybindings,
-	Input,
-	matchesKey,
-	type SelectItem,
-	SelectList,
-	Text,
-	truncateToWidth,
-} from "@mariozechner/pi-tui";
+import { Container, getKeybindings, Input, matchesKey, type SelectItem, SelectList, Text } from "@mariozechner/pi-tui";
 import { CACHE_LIMITS, PAGE_SIZE, TIMEOUTS } from "../constants.js";
 import { getSearchCache, isCacheValid, searchNpmPackages, setSearchCache } from "../packages/discovery.js";
 import { installPackage, installPackageLocally } from "../packages/install.js";
@@ -282,7 +273,7 @@ function filterPackageItems(packages: NpmPackage[], filter: string): SelectItem[
 		.map((p) => ({
 			value: `pkg:${p.name}`,
 			label: `${p.name}${p.version ? ` @${p.version}` : ""}`,
-			description: truncateToWidth(p.description || "No description", 35),
+			description: p.description || "No description",
 		}));
 }
 
@@ -327,7 +318,7 @@ async function selectBrowseAction(
 			: packages.map((p) => ({
 					value: `pkg:${p.name}`,
 					label: `${p.name}${p.version ? ` @${p.version}` : ""}`,
-					description: truncateToWidth(p.description || "No description", 35),
+					description: p.description || "No description",
 				}));
 		return [...pkgItems, ...navItems];
 	}
