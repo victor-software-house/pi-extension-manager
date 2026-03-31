@@ -4,7 +4,7 @@ Interactive extension and package manager for [Pi](https://github.com/nicholasga
 
 Provides an `/extensions` command to manage local extensions and community packages from within Pi.
 
-![Extension manager showing local extensions and installed packages in a unified list](https://raw.githubusercontent.com/victor-software-house/pi-extension-manager/main/assets/package-preview.png)
+![Extension manager showing local extensions and installed packages in a unified list](./assets/package-preview.png)
 
 ## Install
 
