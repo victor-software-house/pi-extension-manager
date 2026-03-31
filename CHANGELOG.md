@@ -1,3 +1,10 @@
+# [0.8.0](https://github.com/victor-software-house/pi-extension-manager/compare/v0.7.1...v0.8.0) (2026-03-31)
+
+
+### Features
+
+* selective updates — only update outdated packages by default ([e1f6e1a](https://github.com/victor-software-house/pi-extension-manager/commit/e1f6e1afb6fc860524001ae5aaf32bd00face73f))
+
 ## [0.7.1](https://github.com/victor-software-house/pi-extension-manager/compare/v0.7.0...v0.7.1) (2026-03-31)
 
 
