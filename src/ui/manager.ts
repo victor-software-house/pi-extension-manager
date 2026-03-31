@@ -489,15 +489,20 @@ export async function showInteractive(
 				const spacing = Math.max(1, width - titleWidth - hintWidth);
 				const headerLine = truncateToWidth(`${title}${" ".repeat(spacing)}${hint}`, width, "");
 
-				const shortcutLine = searchActive
-					? theme.fg(
-							"muted",
-							`Filter: name \u00b7 /path \u00b7 @source  \u00b7  space toggle \u00b7 enter actions \u00b7 esc clear`,
-						)
-					: theme.fg(
-							"muted",
-							`space toggle \u00b7 a actions \u00b7 i install \u00b7 r remote \u00b7 u update \u00b7 U all \u00b7 x remove \u00b7 ? help`,
-						);
+				const dot = "\u00b7";
+				const shortcutVariants = searchActive
+					? [
+							`Filter: name ${dot} /path ${dot} @source  ${dot}  space toggle ${dot} enter actions ${dot} esc clear`,
+							`Filter: name ${dot} /path ${dot} @source ${dot} spc toggle ${dot} enter act ${dot} esc clear`,
+							`name ${dot} /path ${dot} @source ${dot} spc ${dot} enter ${dot} esc`,
+						]
+					: [
+							`space toggle ${dot} a actions ${dot} i install ${dot} r remote ${dot} u update ${dot} U all ${dot} x remove ${dot} ? help`,
+							`spc toggle ${dot} a act ${dot} i inst ${dot} r remote ${dot} u upd ${dot} U all ${dot} x rm ${dot} ? help`,
+							`spc ${dot} a ${dot} i ${dot} r ${dot} u ${dot} U ${dot} x ${dot} ?`,
+						];
+				const shortcutText = shortcutVariants.find((v) => v.length <= width) ?? shortcutVariants.at(-1) ?? "";
+				const shortcutLine = truncateToWidth(theme.fg("muted", shortcutText), width, "");
 
 				return [headerLine, shortcutLine];
 			},
