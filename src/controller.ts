@@ -9,7 +9,7 @@
  *
  * One instance is created in index.ts and passed down to all subsystems.
  */
-import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getPackageCatalog } from "./packages/catalog.js";
 import { logAutoUpdateConfig } from "./utils/history.js";
 import { notify } from "./utils/notify.js";

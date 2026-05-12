@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { ExtensionManagerController } from "../controller.js";
 import { notify } from "../utils/notify.js";
 import { parseDuration } from "../utils/settings.js";

@@ -39,7 +39,7 @@ Short, memorable, low collision risk. `/extensions` is too generic.
 
 Following `pi-skills-manager`, the main panel uses a custom `ctx.ui.custom()` component:
 
-- `Input` from `@mariozechner/pi-tui` for search/filter
+- `Input` from `@earendil-works/pi-tui` for search/filter
 - Scoped search: plain text matches names, `/prefix` matches paths, `@prefix` matches package sources
 - Grouped flat list with non-selectable group headers (local extensions, packages by scope)
 - View modes cycled with Tab: `by-source | A-Z | active-first`

@@ -1,6 +1,6 @@
 pre-commit:
   commands:
     typecheck:
-      run: bun run typecheck
+      run: pnpm run typecheck
     lint:
-      run: bun run lint
+      run: pnpm run lint

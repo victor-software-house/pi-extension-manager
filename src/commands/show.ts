@@ -1,7 +1,7 @@
 /**
  * /extensions show — summarize current state without opening the panel.
  */
-import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import type { ExtensionManagerController } from "../controller.js";
 import { discoverExtensions } from "../extensions/discovery.js";
 import { getInstalledPackages } from "../packages/discovery.js";

@@ -3,7 +3,7 @@
  */
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { DATA_DIR } from "../constants.js";
 import { notify } from "../utils/notify.js";
 

@@ -2,7 +2,7 @@
 
 Interactive extension and package manager for Pi. Provides `/extensions` with subcommands.
 
-Safe-push repo. Push to `main` freely — CI runs typecheck + lint before semantic-release publishes.
+Safe-push repo. Push to `main` freely — CI runs lint + typecheck before tag-driven private GitHub Packages release.
 
 ## Orient
 
@@ -24,16 +24,16 @@ src/
 ```
 
 Key files for understanding the architecture:
-- `src/index.ts` — the full extension entry point; short, read it first
+- `src/index.ts` — full extension entry point; short, read it first
 - `src/controller.ts` — `ExtensionManagerController`: all mutable runtime state lives here
-- `src/commands/registry.ts` — command routing and the RTK subcommand table
+- `src/commands/registry.ts` — command routing and RTK subcommand table
 - `docs/engineering/refactor-plan.md` — architecture decisions and file-level inventory
 
 ## Command surface
 
-See [README.md](README.md) for the full command table. Do not duplicate it here.
+See [README.md](README.md) for full command table. Do not duplicate it here.
 
-Core pattern: `/extensions [subcommand] [args]`. Bare `/extensions` opens the interactive TUI.
+Core pattern: `/extensions [subcommand] [args]`. Bare `/extensions` opens interactive TUI.
 Non-interactive mode (print/RPC/JSON) gets plain-text output — never assume `ctx.hasUI` is true.
 
 ## Verification
@@ -41,24 +41,26 @@ Non-interactive mode (print/RPC/JSON) gets plain-text output — never assume `c
 Lefthook pre-commit runs both automatically. Run them manually when iterating:
 
 ```bash
-bun run typecheck   # tsc --noEmit (strict: noUncheckedIndexedAccess, exactOptionalPropertyTypes)
-bun run lint        # biome check . (no any, no non-null assertions)
+pnpm run typecheck   # tsc --noEmit (strict: noUncheckedIndexedAccess, exactOptionalPropertyTypes)
+pnpm run lint        # biome check . (no any, no non-null assertions)
+pnpm run test        # vitest run --passWithNoTests
+pnpm run build       # tsc
 ```
 
-No test suite yet. Verify TUI changes by installing locally into a Pi session:
+No test files yet. Verify TUI changes by installing locally into a Pi session:
 
 ```bash
 pi install path:.    # from repo root, in a Pi session
-/extensions          # exercise the change
+/extensions          # exercise change
 ```
 
-After verifying, `git push` to `main` triggers CI → semantic-release → npm publish.
+After verifying, push `main` for CI; create a `v*.*.*` tag to trigger private GitHub Packages release.
 
 ## Coding rules
 
 - Tabs, double quotes, semicolons (biome)
 - `node:` protocol for all Node.js imports
-- Peer dependencies only for Pi core packages (`@mariozechner/pi-coding-agent`, `@mariozechner/pi-tui`)
+- Peer dependencies only for Pi core packages (`@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`)
 - No `any`, no non-null assertions (`!`), no unsafe type assertions (`as`)
 - Prefer `const` — biome enforces this
 
@@ -75,14 +77,14 @@ All session-entry events call `controller.bootstrap()`. Shutdown calls `controll
 
 ### Reload semantics
 
-After install/remove/update/toggle operations, prompt the user to reload. The pattern is:
+After install/remove/update/toggle operations, prompt user to reload. Pattern:
 
 ```ts
 ctx.reload();
 return; // terminal — no code after reload
 ```
 
-DO: treat `ctx.reload()` as a return point. DO NOT: execute logic after calling it.
+DO: treat `ctx.reload()` as return point. DO NOT: execute logic after calling it.
 
 ### State persistence
 
@@ -96,14 +98,12 @@ Always check `ctx.hasUI` before rendering TUI components. Non-interactive paths 
 
 ## Release
 
-- semantic-release on `main` with npm trusted publishing (OIDC, no npm token needed)
-- `@semantic-release/git` commits version bumps back to git
-- Commit prefixes: `fix:` → patch, `feat:` → minor, `feat!:` → major (public API breaks only)
-- `chore:`, `docs:`, `refactor:` → no version bump
-- Conventional commits enforced by commitlint + lefthook
+- Tag-driven private GitHub Packages release on `v*.*.*`
+- Release workflow verifies tag ↔ package version, runs lint + typecheck + test + build, then publishes with `pnpm publish --access restricted --no-git-checks`
+- Conventional commits still used for normal history
 
 ## Safety rules
 
 - DO NOT delete or modify files under `~/.pi/agent/` outside the `.extmgr-cache/` directory
-- DO NOT run `npm install` or `npm update` outside the controlled `src/packages/install.ts` flow
+- DO NOT run dependency install/update commands outside the controlled `src/packages/install.ts` flow
 - Ask before adding new peer dependencies — they affect every Pi installation that uses this package

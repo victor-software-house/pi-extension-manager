@@ -1,7 +1,7 @@
 /**
  * /extensions enable|disable <pattern> — toggle extensions from CLI.
  */
-import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { discoverExtensions, setExtensionState } from "../extensions/discovery.js";
 import type { State } from "../types/index.js";
 import { logExtensionToggle } from "../utils/history.js";

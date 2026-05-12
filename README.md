@@ -9,7 +9,7 @@ Provides an `/extensions` command to manage local extensions and community packa
 ## Install
 
 ```bash
-pi install npm:pi-extension-manager
+pi install npm:@victor-software-house/pi-extension-manager
 ```
 
 ## Usage
@@ -35,7 +35,7 @@ pi install npm:pi-extension-manager
 
 ## Interactive manager
 
-The main `/extensions` view shows local extensions and installed packages in a unified list with:
+Main `/extensions` view shows local extensions and installed packages in a unified list with:
 
 - Type-to-filter search (plain text, `/path`, `@source`)
 - View modes: Tab cycles by-source / A-Z / active-first
@@ -44,7 +44,17 @@ The main `/extensions` view shows local extensions and installed packages in a u
 
 ## Prior art
 
-This project is a rewrite of [pi-extmgr](https://github.com/ayagmar/pi-extmgr) by [@ayagmar](https://github.com/ayagmar), which provided the original extension management UI and package operations for Pi. The TUI pattern follows [pi-skills-manager](https://github.com/victor-software-house/pi-skills-manager).
+This project is a rewrite of [pi-extmgr](https://github.com/ayagmar/pi-extmgr) by [@ayagmar](https://github.com/ayagmar), which provided original extension management UI and package operations for Pi. TUI pattern follows [pi-skills-manager](https://github.com/victor-software-house/pi-skills-manager).
+
+## Development
+
+```bash
+pnpm install
+pnpm run typecheck
+pnpm run lint
+pnpm run test
+pnpm run build
+```
 
 ## License
 

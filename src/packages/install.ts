@@ -4,7 +4,7 @@
 import { cp, mkdir, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { ExtensionAPI, ExtensionCommandContext, ProgressEvent } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext, ProgressEvent } from "@earendil-works/pi-coding-agent";
 import { TIMEOUTS } from "../constants.js";
 import { runTaskWithLoader } from "../ui/async-task.js";
 import { normalizePackageSource } from "../utils/format.js";

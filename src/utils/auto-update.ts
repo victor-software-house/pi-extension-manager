@@ -1,7 +1,7 @@
 /**
  * Auto-update logic and background checker
  */
-import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getPackageCatalog } from "../packages/catalog.js";
 import { logAutoUpdateConfig } from "./history.js";
 import { notify } from "./notify.js";

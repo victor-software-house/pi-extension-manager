@@ -3,7 +3,7 @@
  */
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { CACHE_TTL, TIMEOUTS } from "../constants.js";
 import type { InstalledPackage, NpmPackage, SearchCache } from "../types/index.js";
 import { parseNpmSource } from "../utils/format.js";

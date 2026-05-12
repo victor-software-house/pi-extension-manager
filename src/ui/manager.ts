@@ -9,8 +9,8 @@
  * - a = package actions menu, u = update, x = remove, r = remote browse
  * - After close, prompts reload if local extensions changed
  */
-import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
-import { DynamicBorder, rawKeyHint } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import { DynamicBorder, rawKeyHint } from "@earendil-works/pi-coding-agent";
 import {
 	Container,
 	getKeybindings,
@@ -19,7 +19,7 @@ import {
 	Spacer,
 	truncateToWidth,
 	visibleWidth,
-} from "@mariozechner/pi-tui";
+} from "@earendil-works/pi-tui";
 import type { ExtensionManagerController } from "../controller.js";
 import { discoverExtensions, removeLocalExtension, setExtensionState } from "../extensions/discovery.js";
 import { getInstalledPackages } from "../packages/discovery.js";

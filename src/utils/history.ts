@@ -5,7 +5,7 @@
  * Global history (cross-session JSONL walking) has been removed.
  * Use session-scoped querySessionChanges() for all history needs.
  */
-import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------

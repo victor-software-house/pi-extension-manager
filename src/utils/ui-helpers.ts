@@ -1,7 +1,7 @@
 /**
  * Common UI helper patterns
  */
-import type { ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { UI } from "../constants.js";
 import { notify } from "./notify.js";
 

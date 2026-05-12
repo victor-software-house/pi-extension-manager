@@ -1,7 +1,7 @@
 /**
  * /extensions reset — reset settings to defaults.
  */
-import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import type { ExtensionManagerController } from "../controller.js";
 import { clearCache } from "../utils/cache.js";
 import { notify } from "../utils/notify.js";

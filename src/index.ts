@@ -3,7 +3,7 @@
  *
  * Command: /extensions
  */
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createAutoUpdateNotificationHandler } from "./commands/auto-update.js";
 import {
 	getExtensionsAutocompleteItems,
@@ -58,15 +58,7 @@ export default function extensionsManager(pi: ExtensionAPI) {
 		await bootstrap(ctx);
 	});
 
-	pi.on("session_switch", async (_event, ctx) => {
-		await bootstrap(ctx);
-	});
-
 	pi.on("session_tree", async (_event, ctx) => {
-		await bootstrap(ctx);
-	});
-
-	pi.on("session_fork", async (_event, ctx) => {
 		await bootstrap(ctx);
 	});
 
