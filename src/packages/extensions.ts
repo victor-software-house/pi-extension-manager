@@ -85,12 +85,21 @@ async function resolveNpmPackageRoot(pkg: InstalledPackage, cwd: string): Promis
 		join(cwd, "node_modules", packageName),
 	];
 
-	const packageDir = process.env.PI_PACKAGE_DIR || join(homedir(), ".pi", "agent");
+	// Pi 0.75+ installs user-scoped npm packages under <agentDir>/npm/node_modules/
+	// (closes earendil-works/pi#4587). Use the canonical `getAgentDir()` resolver
+	// from pi-coding-agent so this honors `PI_CODING_AGENT_DIR` exactly the way
+	// Pi's own package manager does. The legacy `PI_PACKAGE_DIR` override is
+	// kept as a non-standard escape hatch for environments that pinned it before
+	// the 0.75 migration. On systems that haven't run `pi update` since the
+	// migration the legacy `npm root -g` location may still hold older copies,
+	// so the managed root is preferred and the global root is consulted only as
+	// a fallback for not-yet-migrated packages.
+	const packageDir = process.env.PI_PACKAGE_DIR || getAgentDir();
 	const globalCandidates = [join(packageDir, "npm", "node_modules", packageName)];
 
 	const npmGlobalRoot = await getGlobalNpmRoot();
 	if (npmGlobalRoot) {
-		globalCandidates.unshift(join(npmGlobalRoot, packageName));
+		globalCandidates.push(join(npmGlobalRoot, packageName));
 	}
 
 	const candidates = pkg.scope === "project" ? projectCandidates : [...globalCandidates, ...projectCandidates];

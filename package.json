@@ -1,6 +1,6 @@
 {
   "name": "@victor-software-house/pi-extension-manager",
-  "version": "0.8.3",
+  "version": "0.8.4",
   "description": "Interactive extension and package manager for Pi",
   "license": "MIT",
   "author": "Victor Software House",
@@ -44,8 +44,8 @@
     "prepublishOnly": "pnpm run lint && pnpm run typecheck && pnpm test && pnpm run build"
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": ">=0.74.0",
-    "@earendil-works/pi-tui": ">=0.74.0"
+    "@earendil-works/pi-coding-agent": ">=0.75.0",
+    "@earendil-works/pi-tui": ">=0.75.0"
   },
   "peerDependenciesMeta": {
     "@earendil-works/pi-coding-agent": {
@@ -59,6 +59,8 @@
     "@biomejs/biome": "^2.4.8",
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
+    "@earendil-works/pi-coding-agent": "^0.75.0",
+    "@earendil-works/pi-tui": "^0.75.0",
     "@types/node": "^22.13.10",
     "lefthook": "^2.1.4",
     "typescript": "^5.9.3",

@@ -15,7 +15,7 @@ jobs:
     name: Verify
     runs-on: ubuntu-latest
     env:
-      NODE_AUTH_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
+      NODE_AUTH_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN || github.token }}
 
     steps:
       - name: Checkout
